@@ -18,68 +18,46 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _H_INFO
-#define _H_INFO
+#include "curl_handle.h"
 
-#include "ncmpcpp.h"
-#include "mpdpp.h"
-#include "screen.h"
+#ifdef HAVE_CURL_CURL_H
 
-class Info : public Screen<Scrollpad>
+#include <cstdlib>
+
+namespace
 {
-	public:
-		struct Metadata
-		{
-			const char *Name;
-			MPD::Song::GetFunction Get;
-			MPD::Song::SetFunction Set;
-		};
-		
-		virtual void SwitchTo() { }
-		virtual void Resize();
-		
-		virtual std::basic_string<my_char_t> Title();
-		
-#		ifdef HAVE_CURL_CURL_H
-		virtual void Update();
-#		endif // HAVE_CURL_CURL_H
-		
-		virtual void EnterPressed() { }
-		virtual void SpacePressed() { }
-		
-		virtual bool allowsSelection() { return false; }
-		
-		virtual List *GetList() { return 0; }
-		
-		void GetSong();
-#		ifdef HAVE_CURL_CURL_H
-		void GetArtist();
-#		endif // HAVE_CURL_CURL_H
-		
-		static const Metadata Tags[];
-		
-	protected:
-		virtual void Init();
-		
-	private:
-		std::string itsArtist;
-		std::string itsTitle;
-		std::string itsFilenamePath;
-		
-		void PrepareSong(MPD::Song &);
-		
-#		ifdef HAVE_CURL_CURL_H
-		static void *PrepareArtist(void *);
-		
-		static const std::string Folder;
-		static bool ArtistReady;
-		
-		static pthread_t *Downloader;
-		
-#		endif // HAVE_CURL_CURL_H
-};
+	size_t write_data(char *buffer, size_t size, size_t nmemb, void *data)
+	{
+		size_t result = size*nmemb;
+		static_cast<std::string *>(data)->append(buffer, result);
+		return result;
+	}
+}
 
-extern Info *myInfo;
+CURLcode Curl::perform(const std::string &URL, std::string &data, unsigned timeout)
+{
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_lock(&lock);
+	CURLcode result;
+	CURL *c = curl_easy_init();
+	curl_easy_setopt(c, CURLOPT_URL, URL.c_str());
+	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_data);
+	curl_easy_setopt(c, CURLOPT_WRITEDATA, &data);
+	curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, timeout);
+	curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1);
+	result = curl_easy_perform(c);
+	curl_easy_cleanup(c);
+	pthread_mutex_unlock(&lock);
+	return result;
+}
 
-#endif
+std::string Curl::escape(const std::string &s)
+{
+	char *cs = curl_easy_escape(0, s.c_str(), s.length());
+	std::string result(cs);
+	curl_free(cs);
+	return result;
+}
+
+#endif // HAVE_CURL_CURL_H
 

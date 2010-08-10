@@ -18,68 +18,26 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _H_INFO
-#define _H_INFO
+#ifndef _CURL_HANDLE_H
+#define _CURL_HANDLE_H
 
-#include "ncmpcpp.h"
-#include "mpdpp.h"
-#include "screen.h"
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 
-class Info : public Screen<Scrollpad>
+#ifdef HAVE_CURL_CURL_H
+
+#include <string>
+#include "curl/curl.h"
+
+namespace Curl
 {
-	public:
-		struct Metadata
-		{
-			const char *Name;
-			MPD::Song::GetFunction Get;
-			MPD::Song::SetFunction Set;
-		};
-		
-		virtual void SwitchTo() { }
-		virtual void Resize();
-		
-		virtual std::basic_string<my_char_t> Title();
-		
-#		ifdef HAVE_CURL_CURL_H
-		virtual void Update();
-#		endif // HAVE_CURL_CURL_H
-		
-		virtual void EnterPressed() { }
-		virtual void SpacePressed() { }
-		
-		virtual bool allowsSelection() { return false; }
-		
-		virtual List *GetList() { return 0; }
-		
-		void GetSong();
-#		ifdef HAVE_CURL_CURL_H
-		void GetArtist();
-#		endif // HAVE_CURL_CURL_H
-		
-		static const Metadata Tags[];
-		
-	protected:
-		virtual void Init();
-		
-	private:
-		std::string itsArtist;
-		std::string itsTitle;
-		std::string itsFilenamePath;
-		
-		void PrepareSong(MPD::Song &);
-		
-#		ifdef HAVE_CURL_CURL_H
-		static void *PrepareArtist(void *);
-		
-		static const std::string Folder;
-		static bool ArtistReady;
-		
-		static pthread_t *Downloader;
-		
-#		endif // HAVE_CURL_CURL_H
-};
+	CURLcode perform(const std::string &URL, std::string &data, unsigned timeout = 10);
+	
+	std::string escape(const std::string &s);
+}
 
-extern Info *myInfo;
+#endif // HAVE_CURL_CURL_H
 
 #endif
 

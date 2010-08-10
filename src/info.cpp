@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 #include "info.h"
+#include "curl_handle.h"
 
 #ifdef HAVE_CURL_CURL_H
 # include <fstream>
@@ -27,8 +28,6 @@
 # else
 #  include <sys/stat.h>
 # endif // WIN32
-# include "curl/curl.h"
-# include "helpers.h"
 #endif
 
 #include "browser.h"
@@ -50,9 +49,7 @@ using Global::myOldScreen;
 const std::string Info::Folder = home_path + HOME_FOLDER"artists";
 bool Info::ArtistReady = 0;
 
-#ifdef HAVE_PTHREAD_H
 pthread_t *Info::Downloader = 0;
-#endif // HAVE_PTHREAD_H
 
 #endif // HAVE_CURL_CURL_H
 
@@ -92,7 +89,7 @@ std::basic_string<my_char_t> Info::Title()
 	return TO_WSTRING(itsTitle);
 }
 
-#if defined(HAVE_CURL_CURL_H) && defined(HAVE_PTHREAD_H)
+#ifdef HAVE_CURL_CURL_H
 void Info::Update()
 {
 	if (!ArtistReady)
@@ -104,7 +101,7 @@ void Info::Update()
 	Downloader = 0;
 	ArtistReady = 0;
 }
-#endif // HAVE_CURL_CURL_H && HAVE_PTHREAD_H
+#endif // HAVE_CURL_CURL_H
 
 void Info::GetSong()
 {
@@ -150,7 +147,6 @@ void Info::GetArtist()
 		if (!isInitialized)
 			Init();
 		
-#		ifdef HAVE_PTHREAD_H
 		if (Downloader && !ArtistReady)
 		{
 			ShowMessage("Artist info is being downloaded...");
@@ -158,7 +154,6 @@ void Info::GetArtist()
 		}
 		else if (ArtistReady)
 			Update();
-#		endif // HAVE_PTHREAD_H
 		
 		MPD::Song *s = myScreen->CurrentSong();
 		
@@ -180,9 +175,7 @@ void Info::GetArtist()
 		w->Reset();
 		static_cast<Window &>(*w) << "Fetching artist info...";
 		w->Window::Refresh();
-#		ifdef HAVE_PTHREAD_H
 		if (!Downloader)
-#		endif // HAVE_PTHREAD_H
 		{
 			locale_to_utf(itsArtist);
 			
@@ -220,13 +213,8 @@ void Info::GetArtist()
 			}
 			else
 			{
-#				ifdef HAVE_PTHREAD_H
 				Downloader = new pthread_t;
 				pthread_create(Downloader, 0, PrepareArtist, this);
-#				else
-				PrepareArtist(this);
-				w->Flush();
-#				endif // HAVE_PTHREAD_H
 			}
 		}
 	}
@@ -236,26 +224,12 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 {
 	Info *screen = static_cast<Info *>(screen_void_ptr);
 	
-	char *c_artist = curl_easy_escape(0, screen->itsArtist.c_str(), screen->itsArtist.length());
 	std::string url = "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=";
-	url += c_artist;
+	url += Curl::escape(screen->itsArtist);
 	url += "&api_key=d94e5b6e26469a2d1ffae8ef20131b79";
 	
 	std::string result;
-	CURLcode code;
-	
-	pthread_mutex_lock(&Global::CurlLock);
-	CURL *info = curl_easy_init();
-	curl_easy_setopt(info, CURLOPT_URL, url.c_str());
-	curl_easy_setopt(info, CURLOPT_WRITEFUNCTION, write_data);
-	curl_easy_setopt(info, CURLOPT_WRITEDATA, &result);
-	curl_easy_setopt(info, CURLOPT_CONNECTTIMEOUT, 10);
-	curl_easy_setopt(info, CURLOPT_NOSIGNAL, 1);
-	code = curl_easy_perform(info);
-	curl_easy_cleanup(info);
-	pthread_mutex_unlock(&Global::CurlLock);
-	
-	curl_free(c_artist);
+	CURLcode code = Curl::perform(url, result);
 	
 	if (code != CURLE_OK)
 	{
@@ -271,7 +245,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 	
 	if (a != std::string::npos)
 	{
-		EscapeHtml(result);
+		StripHtmlTags(result);
 		*screen->w << "Last.fm returned an error message: " << result;
 		ArtistReady = 1;
 		pthread_exit(0);
@@ -285,7 +259,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 		result[j] = '.';
 		i += static_strlen("<name>");
 		similar.push_back(result.substr(i, j-i));
-		EscapeHtml(similar.back());
+		StripHtmlTags(similar.back());
 	}
 	std::vector<std::string> urls;
 	for (size_t i = result.find("<url>"); i != std::string::npos; i = result.find("<url>"))
@@ -325,7 +299,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 		result = result.substr(a, b-a);
 	}
 	
-	EscapeHtml(result);
+	StripHtmlTags(result);
 	Trim(result);
 	
 	std::ostringstream filebuffer;
