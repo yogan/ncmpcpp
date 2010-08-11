@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 #include "info.h"
+#include "curl_handle.h"
 
 #ifdef HAVE_CURL_CURL_H
 # include <fstream>
@@ -27,8 +28,6 @@
 # else
 #  include <sys/stat.h>
 # endif // WIN32
-# include "curl/curl.h"
-# include "helpers.h"
 #endif
 
 #include "browser.h"
@@ -50,29 +49,11 @@ using Global::myOldScreen;
 const std::string Info::Folder = home_path + HOME_FOLDER"artists";
 bool Info::ArtistReady = 0;
 
-#ifdef HAVE_PTHREAD_H
 pthread_t *Info::Downloader = 0;
-#endif // HAVE_PTHREAD_H
 
 #endif // HAVE_CURL_CURL_H
 
 Info *myInfo = new Info;
-
-const Info::Metadata Info::Tags[] =
-{
-	{ "Title",		&MPD::Song::GetTitle,		&MPD::Song::SetTitle		},
-	{ "Artist",		&MPD::Song::GetArtist,		&MPD::Song::SetArtist		},
-	{ "Album Artist",	&MPD::Song::GetAlbumArtist,	&MPD::Song::SetAlbumArtist	},
-	{ "Album",		&MPD::Song::GetAlbum,		&MPD::Song::SetAlbum		},
-	{ "Year",		&MPD::Song::GetDate,		&MPD::Song::SetDate		},
-	{ "Track",		&MPD::Song::GetTrack,		&MPD::Song::SetTrack		},
-	{ "Genre",		&MPD::Song::GetGenre,		&MPD::Song::SetGenre		},
-	{ "Composer",		&MPD::Song::GetComposer,	&MPD::Song::SetComposer		},
-	{ "Performer",		&MPD::Song::GetPerformer,	&MPD::Song::SetPerformer	},
-	{ "Disc",		&MPD::Song::GetDisc,		&MPD::Song::SetDisc		},
-	{ "Comment",		&MPD::Song::GetComment,		&MPD::Song::SetComment		},
-	{ 0,			0,				0				}
-};
 
 void Info::Init()
 {
@@ -92,7 +73,7 @@ std::basic_string<my_char_t> Info::Title()
 	return TO_WSTRING(itsTitle);
 }
 
-#if defined(HAVE_CURL_CURL_H) && defined(HAVE_PTHREAD_H)
+#ifdef HAVE_CURL_CURL_H
 void Info::Update()
 {
 	if (!ArtistReady)
@@ -104,40 +85,6 @@ void Info::Update()
 	Downloader = 0;
 	ArtistReady = 0;
 }
-#endif // HAVE_CURL_CURL_H && HAVE_PTHREAD_H
-
-void Info::GetSong()
-{
-	if (myScreen == this)
-	{
-		myOldScreen->SwitchTo();
-	}
-	else
-	{
-		if (!isInitialized)
-			Init();
-		
-		MPD::Song *s = myScreen->CurrentSong();
-		
-		if (!s)
-			return;
-		
-		if (hasToBeResized)
-			Resize();
-		
-		myOldScreen = myScreen;
-		myScreen = this;
-		Global::RedrawHeader = 1;
-		itsTitle = "Song info";
-		w->Clear();
-		w->Reset();
-		PrepareSong(*s);
-		w->Window::Clear();
-		w->Flush();
-	}
-}
-
-#ifdef HAVE_CURL_CURL_H
 
 void Info::GetArtist()
 {
@@ -150,7 +97,6 @@ void Info::GetArtist()
 		if (!isInitialized)
 			Init();
 		
-#		ifdef HAVE_PTHREAD_H
 		if (Downloader && !ArtistReady)
 		{
 			ShowMessage("Artist info is being downloaded...");
@@ -158,7 +104,6 @@ void Info::GetArtist()
 		}
 		else if (ArtistReady)
 			Update();
-#		endif // HAVE_PTHREAD_H
 		
 		MPD::Song *s = myScreen->CurrentSong();
 		
@@ -180,9 +125,7 @@ void Info::GetArtist()
 		w->Reset();
 		static_cast<Window &>(*w) << "Fetching artist info...";
 		w->Window::Refresh();
-#		ifdef HAVE_PTHREAD_H
 		if (!Downloader)
-#		endif // HAVE_PTHREAD_H
 		{
 			locale_to_utf(itsArtist);
 			
@@ -220,13 +163,8 @@ void Info::GetArtist()
 			}
 			else
 			{
-#				ifdef HAVE_PTHREAD_H
 				Downloader = new pthread_t;
 				pthread_create(Downloader, 0, PrepareArtist, this);
-#				else
-				PrepareArtist(this);
-				w->Flush();
-#				endif // HAVE_PTHREAD_H
 			}
 		}
 	}
@@ -236,26 +174,12 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 {
 	Info *screen = static_cast<Info *>(screen_void_ptr);
 	
-	char *c_artist = curl_easy_escape(0, screen->itsArtist.c_str(), screen->itsArtist.length());
 	std::string url = "http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=";
-	url += c_artist;
+	url += Curl::escape(screen->itsArtist);
 	url += "&api_key=d94e5b6e26469a2d1ffae8ef20131b79";
 	
 	std::string result;
-	CURLcode code;
-	
-	pthread_mutex_lock(&Global::CurlLock);
-	CURL *info = curl_easy_init();
-	curl_easy_setopt(info, CURLOPT_URL, url.c_str());
-	curl_easy_setopt(info, CURLOPT_WRITEFUNCTION, write_data);
-	curl_easy_setopt(info, CURLOPT_WRITEDATA, &result);
-	curl_easy_setopt(info, CURLOPT_CONNECTTIMEOUT, 10);
-	curl_easy_setopt(info, CURLOPT_NOSIGNAL, 1);
-	code = curl_easy_perform(info);
-	curl_easy_cleanup(info);
-	pthread_mutex_unlock(&Global::CurlLock);
-	
-	curl_free(c_artist);
+	CURLcode code = Curl::perform(result, url);
 	
 	if (code != CURLE_OK)
 	{
@@ -271,7 +195,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 	
 	if (a != std::string::npos)
 	{
-		EscapeHtml(result);
+		StripHtmlTags(result);
 		*screen->w << "Last.fm returned an error message: " << result;
 		ArtistReady = 1;
 		pthread_exit(0);
@@ -285,7 +209,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 		result[j] = '.';
 		i += static_strlen("<name>");
 		similar.push_back(result.substr(i, j-i));
-		EscapeHtml(similar.back());
+		StripHtmlTags(similar.back());
 	}
 	std::vector<std::string> urls;
 	for (size_t i = result.find("<url>"); i != std::string::npos; i = result.find("<url>"))
@@ -325,7 +249,7 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 		result = result.substr(a, b-a);
 	}
 	
-	EscapeHtml(result);
+	StripHtmlTags(result);
 	Trim(result);
 	
 	std::ostringstream filebuffer;
@@ -364,38 +288,4 @@ void *Info::PrepareArtist(void *screen_void_ptr)
 	pthread_exit(0);
 }
 #endif // HVAE_CURL_CURL_H
-
-void Info::PrepareSong(MPD::Song &s)
-{
-#	ifdef HAVE_TAGLIB_H
-	std::string path_to_file;
-	if (s.isFromDB())
-		path_to_file += Config.mpd_music_dir;
-	path_to_file += s.GetFile();
-	TagLib::FileRef f(path_to_file.c_str());
-	if (!f.isNull())
-		s.SetComment(f.tag()->comment().to8Bit(1));
-#	endif // HAVE_TAGLIB_H
-	
-	*w << fmtBold << Config.color1 << "Filename: " << fmtBoldEnd << Config.color2 << s.GetName() << "\n" << clEnd;
-	*w << fmtBold << "Directory: " << fmtBoldEnd << Config.color2;
-	ShowTag(*w, s.GetDirectory());
-	*w << "\n\n" << clEnd;
-	*w << fmtBold << "Length: " << fmtBoldEnd << Config.color2 << s.GetLength() << "\n" << clEnd;
-#	ifdef HAVE_TAGLIB_H
-	if (!f.isNull())
-	{
-		*w << fmtBold << "Bitrate: " << fmtBoldEnd << Config.color2 << f.audioProperties()->bitrate() << " kbps\n" << clEnd;
-		*w << fmtBold << "Sample rate: " << fmtBoldEnd << Config.color2 << f.audioProperties()->sampleRate() << " Hz\n" << clEnd;
-		*w << fmtBold << "Channels: " << fmtBoldEnd << Config.color2 << (f.audioProperties()->channels() == 1 ? "Mono" : "Stereo") << "\n" << clDefault;
-	}
-#	endif // HAVE_TAGLIB_H
-	*w << clDefault;
-	
-	for (const Metadata *m = Tags; m->Name; ++m)
-	{
-		*w << fmtBold << "\n" << m->Name << ": " << fmtBoldEnd;
-		ShowTag(*w, s.GetTags(m->Get));
-	}
-}
 

@@ -47,6 +47,7 @@
 #include "search_engine.h"
 #include "settings.h"
 #include "song.h"
+#include "song_info.h"
 #include "info.h"
 #include "outputs.h"
 #include "status.h"
@@ -1337,12 +1338,7 @@ int main(int argc, char *argv[])
 #		ifdef HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ToggleLyricsDB))
 		{
-			const char *current_lyrics_plugin = Lyrics::GetPluginName(++Config.lyrics_db);
-			if (!current_lyrics_plugin)
-			{
-				current_lyrics_plugin = Lyrics::GetPluginName(Config.lyrics_db = 0);
-			}
-			ShowMessage("Using lyrics database: %s", current_lyrics_plugin);
+			myLyrics->ToggleFetcher();
 		}
 #		endif // HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ToggleAutoCenter))
@@ -2044,12 +2040,12 @@ int main(int argc, char *argv[])
 			}
 			else if (myScreen == myLyrics)
 			{
-				myLyrics->FetchAgain();
+				myLyrics->Refetch();
 			}
 		}
 		else if (Keypressed(input, Key.SongInfo))
 		{
-			myInfo->GetSong();
+			mySongInfo->SwitchTo();
 		}
 #		ifdef HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ArtistInfo))

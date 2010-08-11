@@ -105,9 +105,6 @@ void ParseArgv(int argc, char **argv)
 #			ifdef HAVE_TAGLIB_H
 			<< " taglib"
 #			endif
-#			ifdef HAVE_PTHREAD_H
-			<< " threads"
-#			endif
 #			ifdef _UTF8
 			<< " unicode"
 #			endif
@@ -375,6 +372,12 @@ std::string ExtractTopName(const std::string &s)
 	return slash != std::string::npos ? s.substr(++slash) : s;
 }
 
+std::string PathGoDownOneLevel(const std::string &path)
+{
+	size_t i = path.rfind('/');
+	return i == std::string::npos ? "/" : path.substr(0, i);
+}
+
 std::basic_string<my_char_t> Scroller(const std::basic_string<my_char_t> &str, size_t &pos, size_t width)
 {
 	std::basic_string<my_char_t> s(str);
@@ -407,13 +410,4 @@ std::basic_string<my_char_t> Scroller(const std::basic_string<my_char_t> &str, s
 		result = s;
 	return result;
 }
-
-#ifdef HAVE_CURL_CURL_H
-size_t write_data(char *buffer, size_t size, size_t nmemb, void *data)
-{
-	size_t result = size*nmemb;
-	static_cast<std::string *>(data)->append(buffer, result);
-	return result;
-}
-#endif // HAVE_CURL_CURL_H
 

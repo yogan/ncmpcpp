@@ -18,39 +18,49 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _CHARSET_H
-#define _CHARSET_H
+#include "curl_handle.h"
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#ifdef HAVE_CURL_CURL_H
 
-#ifdef HAVE_ICONV_H
+#include <cstdlib>
 
-#include <string>
+namespace
+{
+	size_t write_data(char *buffer, size_t size, size_t nmemb, void *data)
+	{
+		size_t result = size*nmemb;
+		static_cast<std::string *>(data)->append(buffer, result);
+		return result;
+	}
+}
 
-void iconv_convert_from_to(const char *from, const char *to, std::string &s);
+CURLcode Curl::perform(std::string &data, const std::string &URL, const std::string &referer, unsigned timeout)
+{
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_lock(&lock);
+	CURLcode result;
+	CURL *c = curl_easy_init();
+	curl_easy_setopt(c, CURLOPT_URL, URL.c_str());
+	curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, write_data);
+	curl_easy_setopt(c, CURLOPT_WRITEDATA, &data);
+	curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, timeout);
+	curl_easy_setopt(c, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(c, CURLOPT_USERAGENT, "ncmpcpp " VERSION);
+	if (!referer.empty())
+		curl_easy_setopt(c, CURLOPT_REFERER, referer.c_str());
+	result = curl_easy_perform(c);
+	curl_easy_cleanup(c);
+	pthread_mutex_unlock(&lock);
+	return result;
+}
 
-void utf_to_locale(std::string &);
-void locale_to_utf(std::string &);
+std::string Curl::escape(const std::string &s)
+{
+	char *cs = curl_easy_escape(0, s.c_str(), s.length());
+	std::string result(cs);
+	curl_free(cs);
+	return result;
+}
 
-std::string utf_to_locale_cpy(const std::string &s);
-std::string locale_to_utf_cpy(const std::string &s);
-
-void utf_to_locale(const char *&, bool);
-void locale_to_utf(const char *&, bool);
-
-#else
-
-#define iconv_convert_from_to(x, y, z);
-
-#define utf_to_locale(x);
-#define locale_to_utf(x);
-
-#define utf_to_locale_cpy(x) (x)
-#define locale_to_utf_cpy(x) (x)
-
-#endif // HAVE_ICONV_H
-
-#endif
+#endif // HAVE_CURL_CURL_H
 

@@ -213,14 +213,11 @@ std::string FindSharedDir(const MPD::SongList &);
 #endif // HAVE_TAGLIB_H
 std::string FindSharedDir(const std::string &, const std::string &);
 std::string ExtractTopName(const std::string &);
+std::string PathGoDownOneLevel(const std::string &path);
 
 std::string GetLineValue(std::string &, char = '"', char = '"', bool = 0);
 
 std::basic_string<my_char_t> Scroller(const std::basic_string<my_char_t> &str, size_t &pos, size_t width);
-
-#ifdef HAVE_CURL_CURL_H
-size_t write_data(char *, size_t, size_t, void *);
-#endif
 
 #endif
 

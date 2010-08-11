@@ -28,21 +28,14 @@
 class Info : public Screen<Scrollpad>
 {
 	public:
-		struct Metadata
-		{
-			const char *Name;
-			MPD::Song::GetFunction Get;
-			MPD::Song::SetFunction Set;
-		};
-		
 		virtual void SwitchTo() { }
 		virtual void Resize();
 		
 		virtual std::basic_string<my_char_t> Title();
 		
-#		if defined(HAVE_CURL_CURL_H) && defined(HAVE_PTHREAD_H)
+#		ifdef HAVE_CURL_CURL_H
 		virtual void Update();
-#		endif // HAVE_CURL_CURL_H && HAVE_PTHREAD_H
+#		endif // HAVE_CURL_CURL_H
 		
 		virtual void EnterPressed() { }
 		virtual void SpacePressed() { }
@@ -51,12 +44,9 @@ class Info : public Screen<Scrollpad>
 		
 		virtual List *GetList() { return 0; }
 		
-		void GetSong();
 #		ifdef HAVE_CURL_CURL_H
 		void GetArtist();
 #		endif // HAVE_CURL_CURL_H
-		
-		static const Metadata Tags[];
 		
 	protected:
 		virtual void Init();
@@ -66,17 +56,13 @@ class Info : public Screen<Scrollpad>
 		std::string itsTitle;
 		std::string itsFilenamePath;
 		
-		void PrepareSong(MPD::Song &);
-		
 #		ifdef HAVE_CURL_CURL_H
 		static void *PrepareArtist(void *);
 		
 		static const std::string Folder;
 		static bool ArtistReady;
 		
-#		ifdef HAVE_PTHREAD_H
 		static pthread_t *Downloader;
-#		endif // HAVE_PTHREAD_H
 		
 #		endif // HAVE_CURL_CURL_H
 };

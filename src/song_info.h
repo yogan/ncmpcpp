@@ -18,39 +18,44 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _CHARSET_H
-#define _CHARSET_H
+#ifndef _SONG_INFO_H
+#define _SONG_INFO_H
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
+#include "screen.h"
+#include "song.h"
 
-#ifdef HAVE_ICONV_H
+class SongInfo : public Screen<Scrollpad>
+{
+	public:
+		struct Metadata
+		{
+			const char *Name;
+			MPD::Song::GetFunction Get;
+			MPD::Song::SetFunction Set;
+		};
+		
+		virtual void SwitchTo();
+		virtual void Resize();
+		
+		virtual std::basic_string<my_char_t> Title();
+		
+		virtual void EnterPressed() { }
+		virtual void SpacePressed() { }
+		
+		virtual bool allowsSelection() { return false; }
+		
+		virtual List *GetList() { return 0; }
+		
+		static const Metadata Tags[];
+		
+	protected:
+		virtual void Init();
+		
+	private:
+		void PrepareSong(MPD::Song &);
+};
 
-#include <string>
-
-void iconv_convert_from_to(const char *from, const char *to, std::string &s);
-
-void utf_to_locale(std::string &);
-void locale_to_utf(std::string &);
-
-std::string utf_to_locale_cpy(const std::string &s);
-std::string locale_to_utf_cpy(const std::string &s);
-
-void utf_to_locale(const char *&, bool);
-void locale_to_utf(const char *&, bool);
-
-#else
-
-#define iconv_convert_from_to(x, y, z);
-
-#define utf_to_locale(x);
-#define locale_to_utf(x);
-
-#define utf_to_locale_cpy(x) (x)
-#define locale_to_utf_cpy(x) (x)
-
-#endif // HAVE_ICONV_H
+extern SongInfo *mySongInfo;
 
 #endif
 

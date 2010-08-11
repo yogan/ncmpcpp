@@ -24,23 +24,17 @@
 #include "ncmpcpp.h"
 #include "mpdpp.h"
 #include "screen.h"
-
-#ifdef HAVE_CURL_CURL_H
-# include "curl/curl.h"
-#endif
+#include "lyrics_fetcher.h"
 
 class Lyrics : public Screen<Scrollpad>
 {
-	struct Plugin
-	{
-		const char *url;
-		const char *tag_open;
-		const char *tag_close;
-		bool (*not_found)(const std::string &);
-	};
-	
 	public:
-		Lyrics() : itsScrollBegin(0) { }
+		Lyrics() : ReloadNP(0),
+#		ifdef HAVE_CURL_CURL_H
+		ReadyToTake(0), DownloadInProgress(0), Fetcher(0),
+#		endif // HAVE_CURL_CURL_H
+		itsScrollBegin(0) { }
+		
 		~Lyrics() { }
 		
 		virtual void Resize();
@@ -58,42 +52,32 @@ class Lyrics : public Screen<Scrollpad>
 		virtual List *GetList() { return 0; }
 		
 		void Edit();
-		void FetchAgain();
-		
-		static bool Reload;
-		
+		void Save(const std::string &lyrics);
+		void Refetch();
 #		ifdef HAVE_CURL_CURL_H
-		static const char *GetPluginName(int offset);
-		
-		static const unsigned DBs;
+		void ToggleFetcher();
 #		endif // HAVE_CURL_CURL_H
+		
+		bool ReloadNP;
 		
 	protected:
 		virtual void Init();
 		
 	private:
-		std::string itsFilenamePath;
+		void Load();
 		
+		std::string itsFilenamePath;
 		static const std::string Folder;
 		
 #		ifdef HAVE_CURL_CURL_H
-		static void *Get(void *);
+		void *Download();
+		static void *DownloadWrapper(void *);
 		
-#		ifdef HAVE_PTHREAD_H
 		void Take();
-#		endif // HAVE_PTHREAD_H
-		
-		static const Plugin *ChoosePlugin(int);
-		static bool LyricsPlugin_NotFound(const std::string &);
-		
-		static bool Ready;
-		
-#		ifdef HAVE_PTHREAD_H
-		static pthread_t *Downloader;
-#		endif // HAVE_PTHREAD_H
-		
-		static const char *PluginsList[];
-		static const Plugin LyricsPlugin;
+		bool ReadyToTake;
+		bool DownloadInProgress;
+		pthread_t Downloader;
+		LyricsFetcher **Fetcher;
 #		endif // HAVE_CURL_CURL_H
 		
 		size_t itsScrollBegin;
