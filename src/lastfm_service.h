@@ -18,56 +18,56 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _H_INFO
-#define _H_INFO
+#ifndef _LASTFM_SERVICE_H
+#define _LASTFM_SERVICE_H
 
-#include "ncmpcpp.h"
-#include "mpdpp.h"
-#include "screen.h"
-
-class Info : public Screen<Scrollpad>
-{
-	public:
-		virtual void SwitchTo() { }
-		virtual void Resize();
-		
-		virtual std::basic_string<my_char_t> Title();
-		
-#		ifdef HAVE_CURL_CURL_H
-		virtual void Update();
-#		endif // HAVE_CURL_CURL_H
-		
-		virtual void EnterPressed() { }
-		virtual void SpacePressed() { }
-		
-		virtual bool allowsSelection() { return false; }
-		
-		virtual List *GetList() { return 0; }
-		
-#		ifdef HAVE_CURL_CURL_H
-		void GetArtist();
-#		endif // HAVE_CURL_CURL_H
-		
-	protected:
-		virtual void Init();
-		
-	private:
-		std::string itsArtist;
-		std::string itsTitle;
-		std::string itsFilenamePath;
-		
-#		ifdef HAVE_CURL_CURL_H
-		static void *PrepareArtist(void *);
-		
-		static const std::string Folder;
-		static bool ArtistReady;
-		
-		static pthread_t *Downloader;
-		
-#		endif // HAVE_CURL_CURL_H
-};
-
-extern Info *myInfo;
-
+#ifdef HAVE_CONFIG_H
+# include "config.h"
 #endif
 
+#ifdef HAVE_CURL_CURL_H
+
+#include <map>
+#include <string>
+
+#include "scrollpad.h"
+
+struct LastfmService
+{
+	typedef std::map<std::string, std::string> Args;
+	typedef std::pair<bool, std::string> Result;
+	
+	virtual const char *name() = 0;
+	virtual Result fetch(Args &args);
+	
+	virtual bool checkArgs(const Args &args) = 0;
+	virtual void colorizeOutput(NCurses::Scrollpad &w) = 0;
+	
+	protected:
+		virtual bool actionFailed(const std::string &data);
+		
+		virtual bool parse(std::string &data) = 0;
+		virtual void postProcess(std::string &data);
+		
+		virtual const char *methodName() = 0;
+		
+		static const char *baseURL;
+		static const char *msgParseFailed;
+};
+
+struct ArtistInfo : public LastfmService
+{
+	virtual const char *name() { return "Artist info"; }
+	
+	virtual bool checkArgs(const Args &args);
+	virtual void colorizeOutput(NCurses::Scrollpad &w);
+	
+	protected:
+		virtual bool parse(std::string &data);
+		
+		virtual const char *methodName() { return "artist.getinfo"; }
+};
+
+#endif // HAVE_CURL_CURL_H
+
+#endif

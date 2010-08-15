@@ -184,6 +184,7 @@ void NcmpcppKeys::SetDefaults()
 	Pause[0] = 'P';
 	Next[0] = '>';
 	Prev[0] = '<';
+	Replay[0] = KEY_BACKSPACE;
 	SeekForward[0] = 'f';
 	SeekBackward[0] = 'b';
 	ToggleRepeat[0] = 'r';
@@ -268,6 +269,7 @@ void NcmpcppKeys::SetDefaults()
 	Pause[1] = NullKey;
 	Next[1] = NullKey;
 	Prev[1] = NullKey;
+	Replay[1] = 127;
 	SeekForward[1] = NullKey;
 	SeekBackward[1] = NullKey;
 	ToggleRepeat[1] = NullKey;
@@ -357,6 +359,7 @@ void NcmpcppConfig::SetDefaults()
 	active_column_color = clRed;
 	window_border = brGreen;
 	active_window_border = brRed;
+	visualizer_color = clYellow;
 	media_lib_primary_tag = MPD_TAG_ARTIST;
 	enable_idle_notifications = true;
 	colors_enabled = true;
@@ -503,6 +506,8 @@ void NcmpcppKeys::Read()
 				GetKeys(key, Next);
 			else if (key.find("key_prev ") != std::string::npos)
 				GetKeys(key, Prev);
+			else if (key.find("key_replay ") != std::string::npos)
+				GetKeys(key, Replay);
 			else if (key.find("key_seek_forward ") != std::string::npos)
 				GetKeys(key, SeekForward);
 			else if (key.find("key_seek_backward ") != std::string::npos)
@@ -762,6 +767,11 @@ void NcmpcppConfig::Read()
 					new_header_second_line += v;
 					new_header_second_line += '}';
 				}
+			}
+			else if (cl.find("lastfm_preferred_language") != std::string::npos)
+			{
+				if (!v.empty() && v != "en")
+					lastfm_preferred_language = v;
 			}
 			else if (cl.find("browser_playlist_prefix") != std::string::npos)
 			{
@@ -1125,6 +1135,11 @@ void NcmpcppConfig::Read()
 			{
 				if (!v.empty())
 					active_column_color = IntoColor(v);
+			}
+			else if (cl.find("visualizer_color") != std::string::npos)
+			{
+				if (!v.empty())
+					visualizer_color = IntoColor(v);
 			}
 			else if (cl.find("window_border_color ") != std::string::npos)
 			{

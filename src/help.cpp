@@ -172,6 +172,7 @@ void Help::GetKeybindings()
 	*w << DisplayKeys(Key.Pause)			<< "Pause\n";
 	*w << DisplayKeys(Key.Next)			<< "Next track\n";
 	*w << DisplayKeys(Key.Prev)			<< "Previous track\n";
+	*w << DisplayKeys(Key.Replay)			<< "Play current track from the beginning\n";
 	*w << DisplayKeys(Key.SeekForward)		<< "Seek forward\n";
 	*w << DisplayKeys(Key.SeekBackward)		<< "Seek backward\n";
 	*w << DisplayKeys(Key.VolumeDown)		<< "Decrease volume\n";
@@ -302,6 +303,10 @@ void Help::GetKeybindings()
 	*w << DisplayKeys(Key.Space)			<< "Switch for following lyrics of now playing song\n";
 	*w << DisplayKeys(Key.EditTags)			<< "Open lyrics in external editor\n";
 	*w << DisplayKeys(Key.SwitchTagTypeList)	<< "Refetch lyrics\n";
+	
+	
+	*w << "\n\n   " << fmtBold << "Keys - Artist info\n -----------------------------------------\n" << fmtBoldEnd;
+	*w << DisplayKeys(Key.SwitchTagTypeList)	<< "Refetch artist info\n";
 	
 	
 #	ifdef HAVE_TAGLIB_H

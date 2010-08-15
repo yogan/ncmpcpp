@@ -89,6 +89,7 @@ struct NcmpcppKeys
 	int Pause[2];
 	int Next[2];
 	int Prev[2];
+	int Replay[2];
 	int SeekForward[2];
 	int SeekBackward[2];
 	int ToggleRepeat[2];
@@ -166,6 +167,7 @@ struct NcmpcppConfig
 	std::string execute_on_song_change;
 	std::string new_header_first_line;
 	std::string new_header_second_line;
+	std::string lastfm_preferred_language;
 	std::basic_string<my_char_t> progressbar;
 	
 	std::string pattern;
@@ -191,6 +193,7 @@ struct NcmpcppConfig
 	Color statusbar_color;
 	Color alternative_ui_separator_color;
 	Color active_column_color;
+	Color visualizer_color;
 	
 	Border window_border;
 	Border active_window_border;

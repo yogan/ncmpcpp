@@ -48,7 +48,7 @@
 #include "settings.h"
 #include "song.h"
 #include "song_info.h"
-#include "info.h"
+#include "lastfm.h"
 #include "outputs.h"
 #include "status.h"
 #include "tag_editor.h"
@@ -140,7 +140,7 @@ namespace
 		mySearcher->hasToBeResized = 1;
 		myLibrary->hasToBeResized = 1;
 		myPlaylistEditor->hasToBeResized = 1;
-		myInfo->hasToBeResized = 1;
+		myLastfm->hasToBeResized = 1;
 		myLyrics->hasToBeResized = 1;
 		mySelectedItemsAdder->hasToBeResized = 1;
 		
@@ -551,7 +551,13 @@ int main(int argc, char *argv[])
 			design_changed = 1;
 			resize_screen();
 		}
-		else if (Keypressed(input, Key.GoToParentDir))
+		else if (Keypressed(input, Key.GoToParentDir)
+		     &&  (myScreen == myBrowser
+#			ifdef HAVE_TAGLIB_H
+		        || myScreen == myTagEditor
+#			endif // HAVE_TAGLIB_H
+			 )
+			)
 		{
 			if (myScreen == myBrowser && myBrowser->CurrentDir() != "/")
 			{
@@ -795,6 +801,14 @@ int main(int argc, char *argv[])
 					utf_to_locale(myPlaylistEditor->Playlists->Current());
 					wFooter->SetTimeout(ncmpcpp_window_timeout);
 				}
+			}
+		}
+		else if (Keypressed(input, Key.Replay))
+		{
+			if (Mpd.isPlaying())
+			{
+				Mpd.Seek(0);
+				UpdateStatusImmediately = 1;
 			}
 		}
 		else if (Keypressed(input, Key.Prev))
@@ -1899,7 +1913,7 @@ int main(int argc, char *argv[])
 				if (myScreen == myPlaylist)
 					myPlaylist->EnableHighlighting();
 			}
-			else if (myScreen == myHelp || myScreen == myLyrics || myScreen == myInfo)
+			else if (myScreen == myHelp || myScreen == myLyrics || myScreen == myLastfm)
 			{
 				LockStatusbar();
 				Statusbar() << "Find: ";
@@ -2042,6 +2056,10 @@ int main(int argc, char *argv[])
 			{
 				myLyrics->Refetch();
 			}
+			else if (myScreen == myLastfm)
+			{
+				myLastfm->Refetch();
+			}
 		}
 		else if (Keypressed(input, Key.SongInfo))
 		{
@@ -2050,7 +2068,22 @@ int main(int argc, char *argv[])
 #		ifdef HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ArtistInfo))
 		{
-			myInfo->GetArtist();
+			if (myScreen == myLastfm)
+			{
+				myLastfm->SwitchTo();
+				continue;
+			}
+			
+			std::string artist;
+			MPD::Song *s = myScreen->CurrentSong();
+			
+			if (s)
+				artist = s->GetArtist();
+			else if (myScreen == myLibrary && myLibrary->Main() == myLibrary->Artists)
+				artist = myLibrary->Artists->Current();
+			
+			if (!artist.empty() && myLastfm->SetArtistInfoArgs(artist, Config.lastfm_preferred_language))
+				myLastfm->SwitchTo();
 		}
 #		endif // HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.Lyrics))

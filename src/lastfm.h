@@ -18,20 +18,73 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _ERROR_H
-#define _ERROR_H
+#ifndef _H_LASTFM
+#define _H_LASTFM
 
-#if defined(__GNUC__) && __GNUC__ >= 3
-# define GNUC_NORETURN __attribute__((noreturn))
-#else
-# define GNUC_NORETURN
+#ifdef HAVE_CONFIG_H
+# include "config.h"
 #endif
 
-#include <string>
+#ifdef HAVE_CURL_CURL_H
 
-#define Error(msg) std::cerr << "ncmpcpp: " << msg;
+#include <memory>
 
-void FatalError(const std::string &msg) GNUC_NORETURN;
+#include "lastfm_service.h"
+#include "screen.h"
+
+class Lastfm : public Screen<Scrollpad>
+{
+	public:
+		Lastfm() : isReadyToTake(0), isDownloadInProgress(0) { }
+		
+		virtual void SwitchTo();
+		virtual void Resize();
+		
+		virtual std::basic_string<my_char_t> Title();
+		
+		virtual void Update();
+		
+		virtual void EnterPressed() { }
+		virtual void SpacePressed() { }
+		
+		virtual bool allowsSelection() { return false; }
+		
+		virtual List *GetList() { return 0; }
+		
+		void Refetch();
+		
+		bool SetArtistInfoArgs(const std::string &artist, const std::string &lang = "");
+		
+	protected:
+		virtual void Init();
+		
+	private:
+		std::basic_string<my_char_t> itsTitle;
+		
+		std::string itsArtist;
+		std::string itsFilename;
+		
+		std::string itsFolder;
+		
+		std::auto_ptr<LastfmService> itsService;
+		LastfmService::Args itsArgs;
+		
+		void Load();
+		void Save(const std::string &data);
+		void SetTitleAndFolder();
+		
+		void Download();
+		static void *DownloadWrapper(void *);
+		
+		void Take();
+		bool isReadyToTake;
+		bool isDownloadInProgress;
+		pthread_t itsDownloader;
+};
+
+extern Lastfm *myLastfm;
+
+#endif // HAVE_CURL_CURL_H
 
 #endif
 
