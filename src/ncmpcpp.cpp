@@ -580,43 +580,61 @@ int main(int argc, char *argv[])
 		{
 			myScreen->SpacePressed();
 		}
-		else if (Keypressed(input, Key.VolumeUp))
+		else if (Keypressed(input, Key.PrevColumn)
+		     &&  (myScreen == myLibrary
+		       || myScreen == myPlaylistEditor
+#		ifdef HAVE_TAGLIB_H
+		       || myScreen == myTagEditor
+#		endif // HAVE_TAGLIB_H)
+			 )
+			)
 		{
-			if (myScreen == myLibrary && input == Key.VolumeUp[0])
-			{
-				myLibrary->NextColumn();
-			}
-			else if (myScreen == myPlaylistEditor && input == Key.VolumeUp[0])
-			{
-				myPlaylistEditor->NextColumn();
-			}
-#			ifdef HAVE_TAGLIB_H
-			else if (myScreen == myTagEditor && input == Key.VolumeUp[0])
-			{
-				myTagEditor->NextColumn();
-			}
-#			endif // HAVE_TAGLIB_H
-			else
-				Mpd.SetVolume(Mpd.GetVolume()+1);
-		}
-		else if (Keypressed(input, Key.VolumeDown))
-		{
-			if (myScreen == myLibrary && input == Key.VolumeDown[0])
+			if (myScreen == myLibrary)
 			{
 				myLibrary->PrevColumn();
 			}
-			else if (myScreen == myPlaylistEditor && input == Key.VolumeDown[0])
+			else if (myScreen == myPlaylistEditor)
 			{
 				myPlaylistEditor->PrevColumn();
 			}
 #			ifdef HAVE_TAGLIB_H
-			else if (myScreen == myTagEditor && input == Key.VolumeDown[0])
+			else if (myScreen == myTagEditor)
 			{
 				myTagEditor->PrevColumn();
 			}
 #			endif // HAVE_TAGLIB_H
-			else
-				Mpd.SetVolume(Mpd.GetVolume()-1);
+		}
+		else if (Keypressed(input, Key.NextColumn)
+		     &&  (myScreen == myLibrary
+		       || myScreen == myPlaylistEditor
+#		ifdef HAVE_TAGLIB_H
+		       || myScreen == myTagEditor
+#		endif // HAVE_TAGLIB_H)
+			 )
+			)
+		{
+			if (myScreen == myLibrary)
+			{
+				myLibrary->NextColumn();
+			}
+			else if (myScreen == myPlaylistEditor)
+			{
+				myPlaylistEditor->NextColumn();
+			}
+#			ifdef HAVE_TAGLIB_H
+			else if (myScreen == myTagEditor)
+			{
+				myTagEditor->NextColumn();
+			}
+#			endif // HAVE_TAGLIB_H
+		}
+		else if (Keypressed(input, Key.VolumeUp))
+		{
+			Mpd.SetVolume(Mpd.GetVolume()+1);
+		}
+		else if (Keypressed(input, Key.VolumeDown))
+		{
+			Mpd.SetVolume(Mpd.GetVolume()-1);
 		}
 		else if (Keypressed(input, Key.Delete))
 		{
@@ -1461,7 +1479,7 @@ int main(int argc, char *argv[])
 			{
 				myTinyTagEditor->SwitchTo();
 			}
-			else if (myScreen->ActiveWindow() == myLibrary->Artists)
+			else if (myScreen->ActiveWindow() == myLibrary->Artists && !myLibrary->Artists->Empty())
 			{
 				LockStatusbar();
 				Statusbar() << fmtBold << IntoStr(Config.media_lib_primary_tag) << fmtBoldEnd << ": ";
@@ -1500,7 +1518,7 @@ int main(int argc, char *argv[])
 					FreeSongList(list);
 				}
 			}
-			else if (myScreen->ActiveWindow() == myLibrary->Albums)
+			else if (myScreen->ActiveWindow() == myLibrary->Albums && !myLibrary->Albums->Empty())
 			{
 				LockStatusbar();
 				Statusbar() << fmtBold << "Album: " << fmtBoldEnd;
@@ -1539,7 +1557,9 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
-			else if (myScreen->ActiveWindow() == myTagEditor->Dirs)
+			else if (myScreen->ActiveWindow() == myTagEditor->Dirs
+			     &&  !myTagEditor->Dirs->Empty()
+			     &&  myTagEditor->Dirs->Choice() > 0)
 			{
 				std::string old_dir = myTagEditor->Dirs->Current().first;
 				LockStatusbar();
@@ -1569,7 +1589,7 @@ int main(int argc, char *argv[])
 			{
 				myLyrics->Edit();
 			}
-			if (myScreen == myBrowser && myBrowser->Main()->Current().type == itDirectory)
+			if (myScreen == myBrowser && !myBrowser->Main()->Empty() && myBrowser->Main()->Current().type == itDirectory)
 			{
 				std::string old_dir = myBrowser->Main()->Current().name;
 				LockStatusbar();
@@ -1602,7 +1622,15 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
-			else if (myScreen->ActiveWindow() == myPlaylistEditor->Playlists || (myScreen == myBrowser && myBrowser->Main()->Current().type == itPlaylist))
+			else if (
+				 (myScreen->ActiveWindow() == myPlaylistEditor->Playlists
+			       && !myPlaylistEditor->Playlists->Empty()
+				 )
+			     ||  (myScreen == myBrowser
+			       && !myBrowser->Main()->Empty()
+			       && myBrowser->Main()->Current().type == itPlaylist
+				 )
+				)
 			{
 				std::string old_name = myScreen->ActiveWindow() == myPlaylistEditor->Playlists ? myPlaylistEditor->Playlists->Current() : myBrowser->Main()->Current().name;
 				LockStatusbar();
@@ -2079,7 +2107,7 @@ int main(int argc, char *argv[])
 			
 			if (s)
 				artist = s->GetArtist();
-			else if (myScreen == myLibrary && myLibrary->Main() == myLibrary->Artists)
+			else if (myScreen == myLibrary && myLibrary->Main() == myLibrary->Artists && !myLibrary->Artists->Empty())
 				artist = myLibrary->Artists->Current();
 			
 			if (!artist.empty() && myLastfm->SetArtistInfoArgs(artist, Config.lastfm_preferred_language))
