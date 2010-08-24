@@ -140,9 +140,12 @@ namespace
 		mySearcher->hasToBeResized = 1;
 		myLibrary->hasToBeResized = 1;
 		myPlaylistEditor->hasToBeResized = 1;
-		myLastfm->hasToBeResized = 1;
 		myLyrics->hasToBeResized = 1;
 		mySelectedItemsAdder->hasToBeResized = 1;
+		
+#		ifdef HAVE_CURL_CURL_H
+		myLastfm->hasToBeResized = 1;
+#		endif // HAVE_CURL_CURL_H
 		
 #		ifdef HAVE_TAGLIB_H
 		myTinyTagEditor->hasToBeResized = 1;
@@ -867,37 +870,41 @@ int main(int argc, char *argv[])
 					if (Mpd.GetErrorMessage().empty())
 						ShowMessage("Filtered items added to playlist \"%s\"", playlist_name.c_str());
 				}
-				else if (Mpd.SavePlaylist(real_playlist_name))
-				{
-					ShowMessage("Playlist saved as: %s", playlist_name.c_str());
-					if (myPlaylistEditor->Main()) // check if initialized
-						myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
-				}
 				else
 				{
-					LockStatusbar();
-					Statusbar() << "Playlist already exists, overwrite: " << playlist_name << " ? [" << fmtBold << 'y' << fmtBoldEnd << '/' << fmtBold << 'n' << fmtBoldEnd << "] ";
-					wFooter->Refresh();
-					int answer = 0;
-					while (answer != 'y' && answer != 'n')
+					int result = Mpd.SavePlaylist(real_playlist_name);
+					if (result == MPD_ERROR_SUCCESS)
 					{
-						TraceMpdStatus();
-						wFooter->ReadKey(answer);
+						ShowMessage("Playlist saved as: %s", playlist_name.c_str());
+						if (myPlaylistEditor->Main()) // check if initialized
+							myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
 					}
-					UnlockStatusbar();
-					
-					if (answer == 'y')
+					else if (result == MPD_SERVER_ERROR_EXIST)
 					{
-						Mpd.DeletePlaylist(real_playlist_name);
-						if (Mpd.SavePlaylist(real_playlist_name))
-							ShowMessage("Playlist overwritten!");
+						LockStatusbar();
+						Statusbar() << "Playlist already exists, overwrite: " << playlist_name << " ? [" << fmtBold << 'y' << fmtBoldEnd << '/' << fmtBold << 'n' << fmtBoldEnd << "] ";
+						wFooter->Refresh();
+						int answer = 0;
+						while (answer != 'y' && answer != 'n')
+						{
+							TraceMpdStatus();
+							wFooter->ReadKey(answer);
+						}
+						UnlockStatusbar();
+						
+						if (answer == 'y')
+						{
+							Mpd.DeletePlaylist(real_playlist_name);
+							if (Mpd.SavePlaylist(real_playlist_name) == MPD_ERROR_SUCCESS)
+								ShowMessage("Playlist overwritten!");
+						}
+						else
+							ShowMessage("Aborted!");
+						if (myPlaylistEditor->Main()) // check if initialized
+							myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
+						if (myScreen == myPlaylist)
+							myPlaylist->EnableHighlighting();
 					}
-					else
-						ShowMessage("Aborted!");
-					if (myPlaylistEditor->Main()) // check if initialized
-						myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
-					if (myScreen == myPlaylist)
-						myPlaylist->EnableHighlighting();
 				}
 			}
 			if (myBrowser->Main()
@@ -1228,13 +1235,21 @@ int main(int argc, char *argv[])
 			UnlockStatusbar();
 			if (!path.empty())
 			{
+				Statusbar() << "Adding...";
+				wFooter->Refresh();
 				if (myScreen == myPlaylistEditor)
 				{
 					Mpd.AddToPlaylist(myPlaylistEditor->Playlists->Current(), path);
 					myPlaylistEditor->Content->Clear(); // make it refetch content of playlist
 				}
 				else
-					Mpd.Add(path);
+				{
+					static const char lastfm_url[] = "lastfm://";
+					if (path.compare(0, static_strlen(lastfm_url), lastfm_url) == 0)
+						Mpd.LoadPlaylist(path);
+					else
+						Mpd.Add(path);
+				}
 				UpdateStatusImmediately = 1;
 			}
 		}
@@ -1941,7 +1956,11 @@ int main(int argc, char *argv[])
 				if (myScreen == myPlaylist)
 					myPlaylist->EnableHighlighting();
 			}
-			else if (myScreen == myHelp || myScreen == myLyrics || myScreen == myLastfm)
+			else if (myScreen == myHelp || myScreen == myLyrics
+#			ifdef HAVE_CURL_CURL_H
+			     || myScreen == myLastfm
+#			endif // HAVE_CURL_CURL_H
+				)
 			{
 				LockStatusbar();
 				Statusbar() << "Find: ";
@@ -2084,10 +2103,12 @@ int main(int argc, char *argv[])
 			{
 				myLyrics->Refetch();
 			}
+#			ifdef HAVE_CURL_CURL_H
 			else if (myScreen == myLastfm)
 			{
 				myLastfm->Refetch();
 			}
+#			endif // HAVE_CURL_CURL_H
 		}
 		else if (Keypressed(input, Key.SongInfo))
 		{

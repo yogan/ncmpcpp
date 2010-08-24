@@ -184,7 +184,8 @@ namespace MPD
 			bool CommitCommandsList();
 			
 			bool DeletePlaylist(const std::string &);
-			bool SavePlaylist(const std::string &);
+			bool LoadPlaylist(const std::string &name);
+			int SavePlaylist(const std::string &);
 			void ClearPlaylist(const std::string &);
 			void AddToPlaylist(const std::string &, const Song &);
 			void AddToPlaylist(const std::string &, const std::string &);

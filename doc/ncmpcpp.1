@@ -202,7 +202,7 @@ Default state for autocenter mode at start.
 If enabled, currently highlighted position in the list will be always centered.
 .TP 
 .B progressbar_look = TEXT
-This variable defines the look of progressbar. Note that it has to be exactly two characters long.
+This variable defines the look of progressbar. Note that it has to be exactly two or three characters long.
 .TP 
 .B default_find_mode = wrapped/normal
 If set to "wrapped", going from last found position to next will take you to the first one (same goes for the first position and going to previous one), otherwise no actions will be performed.
@@ -368,6 +368,8 @@ For song format you can use:
  $R - begin right alignment
 
 You can also put them in { } and then they will be displayed only if all requested values are available and/or define alternate value with { }|{ } e.g. {%a - %t}|{%f} will check if artist and title tags are available and if they are, display them. Otherwise it'll display filename.
+
+\fBNote\fR: If you want to set limit on maximal length of a tag, just put the appropriate number between % and character that defines tag type, e.g. to make album take max. 20 terminal cells, use '%20b'.
 
 \fBNote\fR: Format that is similar to "%a - %t" (i.e. without any additional braces) is equal to "{%a - %t}", so if one of the tags is missing, you'll get nothing.
 
