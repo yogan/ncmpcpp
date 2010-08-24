@@ -18,39 +18,73 @@
  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
  ***************************************************************************/
 
-#ifndef _CHARSET_H
-#define _CHARSET_H
+#ifndef _H_LASTFM
+#define _H_LASTFM
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+# include "config.h"
 #endif
 
-#ifdef HAVE_ICONV_H
+#ifdef HAVE_CURL_CURL_H
 
-#include <string>
+#include <memory>
 
-void iconv_convert_from_to(const char *from, const char *to, std::string &s);
+#include "lastfm_service.h"
+#include "screen.h"
 
-void utf_to_locale(std::string &);
-void locale_to_utf(std::string &);
+class Lastfm : public Screen<Scrollpad>
+{
+	public:
+		Lastfm() : isReadyToTake(0), isDownloadInProgress(0) { }
+		
+		virtual void SwitchTo();
+		virtual void Resize();
+		
+		virtual std::basic_string<my_char_t> Title();
+		
+		virtual void Update();
+		
+		virtual void EnterPressed() { }
+		virtual void SpacePressed() { }
+		
+		virtual bool allowsSelection() { return false; }
+		
+		virtual List *GetList() { return 0; }
+		
+		void Refetch();
+		
+		bool SetArtistInfoArgs(const std::string &artist, const std::string &lang = "");
+		
+	protected:
+		virtual void Init();
+		
+	private:
+		std::basic_string<my_char_t> itsTitle;
+		
+		std::string itsArtist;
+		std::string itsFilename;
+		
+		std::string itsFolder;
+		
+		std::auto_ptr<LastfmService> itsService;
+		LastfmService::Args itsArgs;
+		
+		void Load();
+		void Save(const std::string &data);
+		void SetTitleAndFolder();
+		
+		void Download();
+		static void *DownloadWrapper(void *);
+		
+		void Take();
+		bool isReadyToTake;
+		bool isDownloadInProgress;
+		pthread_t itsDownloader;
+};
 
-std::string utf_to_locale_cpy(const std::string &s);
-std::string locale_to_utf_cpy(const std::string &s);
+extern Lastfm *myLastfm;
 
-void utf_to_locale(const char *&, bool);
-void locale_to_utf(const char *&, bool);
-
-#else
-
-#define iconv_convert_from_to(x, y, z);
-
-#define utf_to_locale(x);
-#define locale_to_utf(x);
-
-#define utf_to_locale_cpy(x) (x)
-#define locale_to_utf_cpy(x) (x)
-
-#endif // HAVE_ICONV_H
+#endif // HAVE_CURL_CURL_H
 
 #endif
 

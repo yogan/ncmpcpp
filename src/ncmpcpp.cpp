@@ -47,7 +47,8 @@
 #include "search_engine.h"
 #include "settings.h"
 #include "song.h"
-#include "info.h"
+#include "song_info.h"
+#include "lastfm.h"
 #include "outputs.h"
 #include "status.h"
 #include "tag_editor.h"
@@ -139,9 +140,12 @@ namespace
 		mySearcher->hasToBeResized = 1;
 		myLibrary->hasToBeResized = 1;
 		myPlaylistEditor->hasToBeResized = 1;
-		myInfo->hasToBeResized = 1;
 		myLyrics->hasToBeResized = 1;
 		mySelectedItemsAdder->hasToBeResized = 1;
+		
+#		ifdef HAVE_CURL_CURL_H
+		myLastfm->hasToBeResized = 1;
+#		endif // HAVE_CURL_CURL_H
 		
 #		ifdef HAVE_TAGLIB_H
 		myTinyTagEditor->hasToBeResized = 1;
@@ -550,7 +554,13 @@ int main(int argc, char *argv[])
 			design_changed = 1;
 			resize_screen();
 		}
-		else if (Keypressed(input, Key.GoToParentDir))
+		else if (Keypressed(input, Key.GoToParentDir)
+		     &&  (myScreen == myBrowser
+#			ifdef HAVE_TAGLIB_H
+		        || myScreen == myTagEditor
+#			endif // HAVE_TAGLIB_H
+			 )
+			)
 		{
 			if (myScreen == myBrowser && myBrowser->CurrentDir() != "/")
 			{
@@ -573,43 +583,61 @@ int main(int argc, char *argv[])
 		{
 			myScreen->SpacePressed();
 		}
-		else if (Keypressed(input, Key.VolumeUp))
+		else if (Keypressed(input, Key.PrevColumn)
+		     &&  (myScreen == myLibrary
+		       || myScreen == myPlaylistEditor
+#		ifdef HAVE_TAGLIB_H
+		       || myScreen == myTagEditor
+#		endif // HAVE_TAGLIB_H)
+			 )
+			)
 		{
-			if (myScreen == myLibrary && input == Key.VolumeUp[0])
-			{
-				myLibrary->NextColumn();
-			}
-			else if (myScreen == myPlaylistEditor && input == Key.VolumeUp[0])
-			{
-				myPlaylistEditor->NextColumn();
-			}
-#			ifdef HAVE_TAGLIB_H
-			else if (myScreen == myTagEditor && input == Key.VolumeUp[0])
-			{
-				myTagEditor->NextColumn();
-			}
-#			endif // HAVE_TAGLIB_H
-			else
-				Mpd.SetVolume(Mpd.GetVolume()+1);
-		}
-		else if (Keypressed(input, Key.VolumeDown))
-		{
-			if (myScreen == myLibrary && input == Key.VolumeDown[0])
+			if (myScreen == myLibrary)
 			{
 				myLibrary->PrevColumn();
 			}
-			else if (myScreen == myPlaylistEditor && input == Key.VolumeDown[0])
+			else if (myScreen == myPlaylistEditor)
 			{
 				myPlaylistEditor->PrevColumn();
 			}
 #			ifdef HAVE_TAGLIB_H
-			else if (myScreen == myTagEditor && input == Key.VolumeDown[0])
+			else if (myScreen == myTagEditor)
 			{
 				myTagEditor->PrevColumn();
 			}
 #			endif // HAVE_TAGLIB_H
-			else
-				Mpd.SetVolume(Mpd.GetVolume()-1);
+		}
+		else if (Keypressed(input, Key.NextColumn)
+		     &&  (myScreen == myLibrary
+		       || myScreen == myPlaylistEditor
+#		ifdef HAVE_TAGLIB_H
+		       || myScreen == myTagEditor
+#		endif // HAVE_TAGLIB_H)
+			 )
+			)
+		{
+			if (myScreen == myLibrary)
+			{
+				myLibrary->NextColumn();
+			}
+			else if (myScreen == myPlaylistEditor)
+			{
+				myPlaylistEditor->NextColumn();
+			}
+#			ifdef HAVE_TAGLIB_H
+			else if (myScreen == myTagEditor)
+			{
+				myTagEditor->NextColumn();
+			}
+#			endif // HAVE_TAGLIB_H
+		}
+		else if (Keypressed(input, Key.VolumeUp))
+		{
+			Mpd.SetVolume(Mpd.GetVolume()+1);
+		}
+		else if (Keypressed(input, Key.VolumeDown))
+		{
+			Mpd.SetVolume(Mpd.GetVolume()-1);
 		}
 		else if (Keypressed(input, Key.Delete))
 		{
@@ -796,6 +824,14 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+		else if (Keypressed(input, Key.Replay))
+		{
+			if (Mpd.isPlaying())
+			{
+				Mpd.Seek(0);
+				UpdateStatusImmediately = 1;
+			}
+		}
 		else if (Keypressed(input, Key.Prev))
 		{
 			Mpd.Prev();
@@ -834,37 +870,41 @@ int main(int argc, char *argv[])
 					if (Mpd.GetErrorMessage().empty())
 						ShowMessage("Filtered items added to playlist \"%s\"", playlist_name.c_str());
 				}
-				else if (Mpd.SavePlaylist(real_playlist_name))
-				{
-					ShowMessage("Playlist saved as: %s", playlist_name.c_str());
-					if (myPlaylistEditor->Main()) // check if initialized
-						myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
-				}
 				else
 				{
-					LockStatusbar();
-					Statusbar() << "Playlist already exists, overwrite: " << playlist_name << " ? [" << fmtBold << 'y' << fmtBoldEnd << '/' << fmtBold << 'n' << fmtBoldEnd << "] ";
-					wFooter->Refresh();
-					int answer = 0;
-					while (answer != 'y' && answer != 'n')
+					int result = Mpd.SavePlaylist(real_playlist_name);
+					if (result == MPD_ERROR_SUCCESS)
 					{
-						TraceMpdStatus();
-						wFooter->ReadKey(answer);
+						ShowMessage("Playlist saved as: %s", playlist_name.c_str());
+						if (myPlaylistEditor->Main()) // check if initialized
+							myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
 					}
-					UnlockStatusbar();
-					
-					if (answer == 'y')
+					else if (result == MPD_SERVER_ERROR_EXIST)
 					{
-						Mpd.DeletePlaylist(real_playlist_name);
-						if (Mpd.SavePlaylist(real_playlist_name))
-							ShowMessage("Playlist overwritten!");
+						LockStatusbar();
+						Statusbar() << "Playlist already exists, overwrite: " << playlist_name << " ? [" << fmtBold << 'y' << fmtBoldEnd << '/' << fmtBold << 'n' << fmtBoldEnd << "] ";
+						wFooter->Refresh();
+						int answer = 0;
+						while (answer != 'y' && answer != 'n')
+						{
+							TraceMpdStatus();
+							wFooter->ReadKey(answer);
+						}
+						UnlockStatusbar();
+						
+						if (answer == 'y')
+						{
+							Mpd.DeletePlaylist(real_playlist_name);
+							if (Mpd.SavePlaylist(real_playlist_name) == MPD_ERROR_SUCCESS)
+								ShowMessage("Playlist overwritten!");
+						}
+						else
+							ShowMessage("Aborted!");
+						if (myPlaylistEditor->Main()) // check if initialized
+							myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
+						if (myScreen == myPlaylist)
+							myPlaylist->EnableHighlighting();
 					}
-					else
-						ShowMessage("Aborted!");
-					if (myPlaylistEditor->Main()) // check if initialized
-						myPlaylistEditor->Playlists->Clear(); // make playlist's list update itself
-					if (myScreen == myPlaylist)
-						myPlaylist->EnableHighlighting();
 				}
 			}
 			if (myBrowser->Main()
@@ -1195,13 +1235,21 @@ int main(int argc, char *argv[])
 			UnlockStatusbar();
 			if (!path.empty())
 			{
+				Statusbar() << "Adding...";
+				wFooter->Refresh();
 				if (myScreen == myPlaylistEditor)
 				{
 					Mpd.AddToPlaylist(myPlaylistEditor->Playlists->Current(), path);
 					myPlaylistEditor->Content->Clear(); // make it refetch content of playlist
 				}
 				else
-					Mpd.Add(path);
+				{
+					static const char lastfm_url[] = "lastfm://";
+					if (path.compare(0, static_strlen(lastfm_url), lastfm_url) == 0)
+						Mpd.LoadPlaylist(path);
+					else
+						Mpd.Add(path);
+				}
 				UpdateStatusImmediately = 1;
 			}
 		}
@@ -1334,6 +1382,12 @@ int main(int argc, char *argv[])
 			Config.playlist_separate_albums = !Config.playlist_separate_albums;
 			ShowMessage("Separators between albums in playlist: %s", Config.playlist_separate_albums ? "On" : "Off");
 		}
+#		ifdef HAVE_CURL_CURL_H
+		else if (Keypressed(input, Key.ToggleLyricsDB))
+		{
+			myLyrics->ToggleFetcher();
+		}
+#		endif // HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ToggleAutoCenter))
 		{
 			Config.autocenter_mode = !Config.autocenter_mode;
@@ -1440,7 +1494,7 @@ int main(int argc, char *argv[])
 			{
 				myTinyTagEditor->SwitchTo();
 			}
-			else if (myScreen->ActiveWindow() == myLibrary->Artists)
+			else if (myScreen->ActiveWindow() == myLibrary->Artists && !myLibrary->Artists->Empty())
 			{
 				LockStatusbar();
 				Statusbar() << fmtBold << IntoStr(Config.media_lib_primary_tag) << fmtBoldEnd << ": ";
@@ -1479,7 +1533,7 @@ int main(int argc, char *argv[])
 					FreeSongList(list);
 				}
 			}
-			else if (myScreen->ActiveWindow() == myLibrary->Albums)
+			else if (myScreen->ActiveWindow() == myLibrary->Albums && !myLibrary->Albums->Empty())
 			{
 				LockStatusbar();
 				Statusbar() << fmtBold << "Album: " << fmtBoldEnd;
@@ -1518,7 +1572,9 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
-			else if (myScreen->ActiveWindow() == myTagEditor->Dirs)
+			else if (myScreen->ActiveWindow() == myTagEditor->Dirs
+			     &&  !myTagEditor->Dirs->Empty()
+			     &&  myTagEditor->Dirs->Choice() > 0)
 			{
 				std::string old_dir = myTagEditor->Dirs->Current().first;
 				LockStatusbar();
@@ -1548,7 +1604,7 @@ int main(int argc, char *argv[])
 			{
 				myLyrics->Edit();
 			}
-			if (myScreen == myBrowser && myBrowser->Main()->Current().type == itDirectory)
+			if (myScreen == myBrowser && !myBrowser->Main()->Empty() && myBrowser->Main()->Current().type == itDirectory)
 			{
 				std::string old_dir = myBrowser->Main()->Current().name;
 				LockStatusbar();
@@ -1581,7 +1637,15 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
-			else if (myScreen->ActiveWindow() == myPlaylistEditor->Playlists || (myScreen == myBrowser && myBrowser->Main()->Current().type == itPlaylist))
+			else if (
+				 (myScreen->ActiveWindow() == myPlaylistEditor->Playlists
+			       && !myPlaylistEditor->Playlists->Empty()
+				 )
+			     ||  (myScreen == myBrowser
+			       && !myBrowser->Main()->Empty()
+			       && myBrowser->Main()->Current().type == itPlaylist
+				 )
+				)
 			{
 				std::string old_name = myScreen->ActiveWindow() == myPlaylistEditor->Playlists ? myPlaylistEditor->Playlists->Current() : myBrowser->Main()->Current().name;
 				LockStatusbar();
@@ -1892,7 +1956,11 @@ int main(int argc, char *argv[])
 				if (myScreen == myPlaylist)
 					myPlaylist->EnableHighlighting();
 			}
-			else if (myScreen == myHelp || myScreen == myLyrics || myScreen == myInfo)
+			else if (myScreen == myHelp || myScreen == myLyrics
+#			ifdef HAVE_CURL_CURL_H
+			     || myScreen == myLastfm
+#			endif // HAVE_CURL_CURL_H
+				)
 			{
 				LockStatusbar();
 				Statusbar() << "Find: ";
@@ -2035,15 +2103,36 @@ int main(int argc, char *argv[])
 			{
 				myLyrics->Refetch();
 			}
+#			ifdef HAVE_CURL_CURL_H
+			else if (myScreen == myLastfm)
+			{
+				myLastfm->Refetch();
+			}
+#			endif // HAVE_CURL_CURL_H
 		}
 		else if (Keypressed(input, Key.SongInfo))
 		{
-			myInfo->GetSong();
+			mySongInfo->SwitchTo();
 		}
 #		ifdef HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.ArtistInfo))
 		{
-			myInfo->GetArtist();
+			if (myScreen == myLastfm)
+			{
+				myLastfm->SwitchTo();
+				continue;
+			}
+			
+			std::string artist;
+			MPD::Song *s = myScreen->CurrentSong();
+			
+			if (s)
+				artist = s->GetArtist();
+			else if (myScreen == myLibrary && myLibrary->Main() == myLibrary->Artists && !myLibrary->Artists->Empty())
+				artist = myLibrary->Artists->Current();
+			
+			if (!artist.empty() && myLastfm->SetArtistInfoArgs(artist, Config.lastfm_preferred_language))
+				myLastfm->SwitchTo();
 		}
 #		endif // HAVE_CURL_CURL_H
 		else if (Keypressed(input, Key.Lyrics))

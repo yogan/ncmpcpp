@@ -24,6 +24,7 @@
 # include <sys/stat.h>
 #endif // WIN32
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
 
 #include "browser.h"
@@ -168,6 +169,8 @@ void NcmpcppKeys::SetDefaults()
 	Delete[0] = KEY_DC;
 	VolumeUp[0] = KEY_RIGHT;
 	VolumeDown[0] = KEY_LEFT;
+	PrevColumn[0] = KEY_LEFT;
+	NextColumn[0] = KEY_RIGHT;
 	ScreenSwitcher[0] = 9;
 	Help[0] = '1';
 	Playlist[0] = '2';
@@ -184,6 +187,7 @@ void NcmpcppKeys::SetDefaults()
 	Pause[0] = 'P';
 	Next[0] = '>';
 	Prev[0] = '<';
+	Replay[0] = KEY_BACKSPACE;
 	SeekForward[0] = 'f';
 	SeekBackward[0] = 'b';
 	ToggleRepeat[0] = 'r';
@@ -252,6 +256,8 @@ void NcmpcppKeys::SetDefaults()
 	Delete[1] = 'd';
 	VolumeUp[1] = '+';
 	VolumeDown[1] = '-';
+	PrevColumn[1] = NullKey;
+	NextColumn[1] = NullKey;
 	ScreenSwitcher[1] = NullKey;
 	Help[1] = 265;
 	Playlist[1] = 266;
@@ -268,6 +274,7 @@ void NcmpcppKeys::SetDefaults()
 	Pause[1] = NullKey;
 	Next[1] = NullKey;
 	Prev[1] = NullKey;
+	Replay[1] = 127;
 	SeekForward[1] = NullKey;
 	SeekBackward[1] = NullKey;
 	ToggleRepeat[1] = NullKey;
@@ -336,7 +343,7 @@ void NcmpcppConfig::SetDefaults()
 	new_header_first_line = "{$b$1$aqqu$/a$9 {%t}|{%f} $1$atqq$/a$9$/b}";
 	new_header_second_line = "{{{$4$b%a$/b$9}{ - $7%b$9}{ ($4%y$9)}}|{%D}}";
 	browser_playlist_prefix << clRed << "(playlist)" << clEnd << ' ';
-	progressbar = U("=>");
+	progressbar = U("=>\0");
 	pattern = "%n - %t";
 	selected_item_prefix << clMagenta;
 	selected_item_suffix << clEnd;
@@ -357,6 +364,7 @@ void NcmpcppConfig::SetDefaults()
 	active_column_color = clRed;
 	window_border = brGreen;
 	active_window_border = brRed;
+	visualizer_color = clYellow;
 	media_lib_primary_tag = MPD_TAG_ARTIST;
 	enable_idle_notifications = true;
 	colors_enabled = true;
@@ -403,6 +411,7 @@ void NcmpcppConfig::SetDefaults()
 	media_library_display_date = true;
 	media_library_disable_two_column_mode = false;
 	discard_colors_if_item_is_selected = true;
+	store_lyrics_in_song_dir = false;
 	set_window_title = true;
 	mpd_port = 6600;
 	mpd_connection_timeout = 15;
@@ -471,6 +480,10 @@ void NcmpcppKeys::Read()
 				GetKeys(key, VolumeUp);
 			else if (key.find("key_volume_down ") != std::string::npos)
 				GetKeys(key, VolumeDown);
+			else if (key.find("key_prev_column ") != std::string::npos)
+				GetKeys(key, PrevColumn);
+			else if (key.find("key_next_column ") != std::string::npos)
+				GetKeys(key, NextColumn);
 			else if (key.find("key_screen_switcher ") != std::string::npos)
 				GetKeys(key, ScreenSwitcher);
 			else if (key.find("key_help ") != std::string::npos)
@@ -503,6 +516,8 @@ void NcmpcppKeys::Read()
 				GetKeys(key, Next);
 			else if (key.find("key_prev ") != std::string::npos)
 				GetKeys(key, Prev);
+			else if (key.find("key_replay ") != std::string::npos)
+				GetKeys(key, Replay);
 			else if (key.find("key_seek_forward ") != std::string::npos)
 				GetKeys(key, SeekForward);
 			else if (key.find("key_seek_backward ") != std::string::npos)
@@ -676,9 +691,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("song_list_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("song_list_format", v))
 				{
-					MPD::Song::ValidateFormat("song_list_format", v);
 					song_list_format = '{';
 					song_list_format += v;
 					song_list_format += '}';
@@ -691,9 +705,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("song_status_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("song_status_format", v))
 				{
-					MPD::Song::ValidateFormat("song_status_format", v);
 					song_status_format = '{';
 					song_status_format += v;
 					song_status_format += '}';
@@ -710,9 +723,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("song_library_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("song_library_format", v))
 				{
-					MPD::Song::ValidateFormat("song_library_format", v);
 					song_library_format = '{';
 					song_library_format += v;
 					song_library_format += '}';
@@ -720,9 +732,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("tag_editor_album_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("tag_editor_album_format", v))
 				{
-					MPD::Song::ValidateFormat("tag_editor_album_format", v);
 					tag_editor_album_format = '{';
 					tag_editor_album_format += v;
 					tag_editor_album_format += '}';
@@ -745,9 +756,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("alternative_header_first_line_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("alternative_header_first_line_format", v))
 				{
-					MPD::Song::ValidateFormat("alternative_header_first_line_format", v);
 					new_header_first_line = '{';
 					new_header_first_line += v;
 					new_header_first_line += '}';
@@ -755,13 +765,17 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("alternative_header_second_line_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("alternative_header_second_line_format", v))
 				{
-					MPD::Song::ValidateFormat("alternative_header_second_line_format", v);
 					new_header_second_line = '{';
 					new_header_second_line += v;
 					new_header_second_line += '}';
 				}
+			}
+			else if (cl.find("lastfm_preferred_language") != std::string::npos)
+			{
+				if (!v.empty() && v != "en")
+					lastfm_preferred_language = v;
 			}
 			else if (cl.find("browser_playlist_prefix") != std::string::npos)
 			{
@@ -773,9 +787,16 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("progressbar_look") != std::string::npos)
 			{
-				progressbar = TO_WSTRING(v);
-				if (progressbar.length() != 2)
-					FatalError("the length of progressbar_look is not two characters long!");
+				std::basic_string<my_char_t> pb = TO_WSTRING(v);
+				if (pb.length() < 2 || pb.length() > 3)
+				{
+					std::cerr << "Warning: length of progressbar_look should be either ";
+					std::cerr << "2 or 3, but it's " << pb.length() << ", discarding.\n";
+				}
+				else
+					progressbar = pb;
+				// if two characters were specified, add third one as null
+				progressbar.resize(3);
 			}
 			else if (cl.find("default_tag_editor_pattern") != std::string::npos)
 			{
@@ -1029,6 +1050,16 @@ void NcmpcppConfig::Read()
 			{
 				discard_colors_if_item_is_selected = v == "yes";
 			}
+			else if (cl.find("store_lyrics_in_song_dir") != std::string::npos)
+			{
+				if (mpd_music_dir.empty())
+				{
+					std::cerr << "Warning: store_lyrics_in_song_dir = \"yes\" is ";
+					std::cerr << "not allowed without mpd_music_dir set, discarding.\n";
+				}
+				else
+					store_lyrics_in_song_dir = v == "yes";
+			}
 			else if (cl.find("enable_window_title") != std::string::npos)
 			{
 				set_window_title = v == "yes";
@@ -1059,9 +1090,8 @@ void NcmpcppConfig::Read()
 			}
 			else if (cl.find("song_window_title_format") != std::string::npos)
 			{
-				if (!v.empty())
+				if (!v.empty() && MPD::Song::isFormatOk("song_window_title_format", v))
 				{
-					MPD::Song::ValidateFormat("song_window_title_format", v);
 					song_window_title_format = '{';
 					song_window_title_format += v;
 					song_window_title_format += '}';
@@ -1125,6 +1155,11 @@ void NcmpcppConfig::Read()
 			{
 				if (!v.empty())
 					active_column_color = IntoColor(v);
+			}
+			else if (cl.find("visualizer_color") != std::string::npos)
+			{
+				if (!v.empty())
+					visualizer_color = IntoColor(v);
 			}
 			else if (cl.find("window_border_color ") != std::string::npos)
 			{

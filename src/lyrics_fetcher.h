@@ -41,10 +41,12 @@ struct LyricsFetcher
 		virtual const char *getOpenTag() = 0;
 		virtual const char *getCloseTag() = 0;
 		
-		virtual bool notLyrics(GNUC_UNUSED const std::string &data) { return false; }
+		virtual bool notLyrics(const std::string &) { return false; }
 		virtual void postProcess(std::string &data);
 		
 		bool getContent(const char *open_tag, const char *close_tag, std::string &data);
+		
+		static const char msgNotFound[];
 };
 
 struct LyrcComArFetcher : public LyricsFetcher
@@ -68,21 +70,94 @@ struct LyricwikiFetcher : public LyricsFetcher
 		virtual const char *getCloseTag() { return "</url>"; }
 		
 		virtual bool notLyrics(const std::string &data);
-		
-	private:
-		std::string unescapeHtmlUtf8(const std::string &data);
 };
 
-struct LyricsflyFetcher : public LyricsFetcher
+/**********************************************************************/
+
+struct GoogleLyricsFetcher : public LyricsFetcher
 {
-	virtual const char *name() { return "lyricsfly.com"; }
+	virtual Result fetch(const std::string &artist, const std::string &title);
 	
 	protected:
-		virtual const char *getURL() { return "http://api.lyricsfly.com/api/api.php?i=1b76e55254f5f22ae-temporary.API.access&a=%artist%&t=%title%"; }
-		virtual const char *getOpenTag() { return "<tx>"; }
-		virtual const char *getCloseTag() { return "</tx>"; }
+		virtual const char *getSiteKeyword() = 0;
+		virtual const char *getURL() { return URL; }
+		
+		virtual bool isURLOk(const std::string &url);
+		
+	private:
+		const char *URL;
+};
+
+struct LyricstimeFetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "lyricstime.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "lyricstime"; }
+		virtual const char *getOpenTag() { return "<div id=\"songlyrics\" >"; }
+		virtual const char *getCloseTag() { return "</div>"; }
+		
+		virtual bool isURLOk(const std::string &url);
 		
 		virtual void postProcess(std::string &data);
+};
+
+struct MetrolyricsFetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "metrolyrics.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "metrolyrics"; }
+		virtual const char *getOpenTag() { return "<div id=\"lyrics\">"; }
+		virtual const char *getCloseTag() { return "</div>"; }
+		
+		virtual bool isURLOk(const std::string &url);
+		
+		virtual void postProcess(std::string &data);
+};
+
+struct LyricsmaniaFetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "lyricsmania.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "lyricsmania"; }
+		virtual const char *getOpenTag() { return "</strong> :<br />"; }
+		virtual const char *getCloseTag() { return "&#91; <a"; }
+		
+		virtual void postProcess(std::string &data);
+};
+
+struct SonglyricsFetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "songlyrics.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "songlyrics"; }
+		virtual const char *getOpenTag() { return "-6000px;\">"; }
+		virtual const char *getCloseTag() { return "</p>"; }
+		
+		virtual void postProcess(std::string &data);
+};
+
+struct LyriczzFetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "lyriczz.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "lyriczz"; }
+		virtual const char *getOpenTag() { return "border=0 /></a>"; }
+		virtual const char *getCloseTag() { return "<a href"; }
+};
+
+struct Sing365Fetcher : public GoogleLyricsFetcher
+{
+	virtual const char *name() { return "sing365.com"; }
+	
+	protected:
+		virtual const char *getSiteKeyword() { return "sing365"; }
+		virtual const char *getOpenTag() { return "<br><br></div>"; }
+		virtual const char *getCloseTag() { return "<div align"; }
 };
 
 extern LyricsFetcher *lyricsPlugins[];

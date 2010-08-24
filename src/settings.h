@@ -73,6 +73,8 @@ struct NcmpcppKeys
 	int Delete[2];
 	int VolumeUp[2];
 	int VolumeDown[2];
+	int PrevColumn[2];
+	int NextColumn[2];
 	int ScreenSwitcher[2];
 	int Help[2];
 	int Playlist[2];
@@ -89,6 +91,7 @@ struct NcmpcppKeys
 	int Pause[2];
 	int Next[2];
 	int Prev[2];
+	int Replay[2];
 	int SeekForward[2];
 	int SeekBackward[2];
 	int ToggleRepeat[2];
@@ -166,6 +169,7 @@ struct NcmpcppConfig
 	std::string execute_on_song_change;
 	std::string new_header_first_line;
 	std::string new_header_second_line;
+	std::string lastfm_preferred_language;
 	std::basic_string<my_char_t> progressbar;
 	
 	std::string pattern;
@@ -191,6 +195,7 @@ struct NcmpcppConfig
 	Color statusbar_color;
 	Color alternative_ui_separator_color;
 	Color active_column_color;
+	Color visualizer_color;
 	
 	Border window_border;
 	Border active_window_border;
@@ -243,6 +248,7 @@ struct NcmpcppConfig
 	bool media_library_display_date;
 	bool media_library_disable_two_column_mode;
 	bool discard_colors_if_item_is_selected;
+	bool store_lyrics_in_song_dir;
 	
 	int mpd_port;
 	int mpd_connection_timeout;
@@ -269,8 +275,6 @@ extern NcmpcppConfig Config;
 
 void CreateConfigDir();
 void SetWindowsDimensions(size_t &header_height, size_t &footer_start_y, size_t &footer_height);
-void ReadKeys(NcmpcppKeys &);
-void ReadConfiguration(NcmpcppConfig &);
 
 #endif
 

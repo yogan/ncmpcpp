@@ -22,8 +22,10 @@
 #include <config.h>
 #endif
 
+#include <cstdlib>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -370,59 +372,21 @@ std::string MPD::Song::ParseFormat(std::string::const_iterator &it, const char *
 		
 		if (*it == '%')
 		{
-			switch (*++it)
+			size_t delimiter = 0;
+			if (isdigit(*++it))
 			{
-				case 'l':
-					get = &MPD::Song::GetLength;
-					break;
-				case 'D':
-					get = &MPD::Song::GetDirectory;
-					break;
-				case 'f':
-					get = &MPD::Song::GetName;
-					break;
-				case 'a':
-					get = &MPD::Song::GetArtist;
-					break;
-				case 'A':
-					get = &MPD::Song::GetAlbumArtist;
-					break;
-				case 'b':
-					get = &MPD::Song::GetAlbum;
-					break;
-				case 'y':
-					get = &MPD::Song::GetDate;
-					break;
-				case 'n':
-					get = &MPD::Song::GetTrackNumber;
-					break;
-				case 'N':
-					get = &MPD::Song::GetTrack;
-					break;
-				case 'g':
-					get = &MPD::Song::GetGenre;
-					break;
-				case 'c':
-					get = &MPD::Song::GetComposer;
-					break;
-				case 'p':
-					get = &MPD::Song::GetPerformer;
-					break;
-				case 'd':
-					get = &MPD::Song::GetDisc;
-					break;
-				case 'C':
-					get = &MPD::Song::GetComment;
-					break;
-				case 't':
-					get = &MPD::Song::GetTitle;
-					break;
-				case '%':
-					result += *it; // no break here
-				default:
-					get = 0;
-					break;
+				delimiter = atol(&*it);
+				while (isdigit(*++it)) { }
 			}
+			
+			if (*it == '%')
+			{
+				result += *it;
+				get = 0;
+			}
+			else
+				get = toGetFunction(*it);
+			
 			if (get)
 			{
 				std::string tag = GetTags(get);
@@ -432,6 +396,12 @@ std::string MPD::Song::ParseFormat(std::string::const_iterator &it, const char *
 							tag.replace(i, 1, std::string(1, FormatEscapeCharacter) + *ch);
 				if (!tag.empty() && (get != &MPD::Song::GetLength || GetTotalLength()))
 				{
+					if (delimiter)
+					{
+						const std::basic_string<my_char_t> &s = TO_WSTRING(tag);
+						if (NCurses::Window::Length(s) > delimiter)
+							tag = Shorten(s, delimiter);
+					}
 					has_some_tags = 1;
 					result += tag;
 				}
@@ -523,7 +493,7 @@ std::string MPD::Song::ShowTime(int length)
 	return ss.str();
 }
 
-void MPD::Song::ValidateFormat(const std::string &type, const std::string &s)
+bool MPD::Song::isFormatOk(const std::string &type, const std::string &s)
 {
 	int braces = 0;
 	for (std::string::const_iterator it = s.begin(); it != s.end(); ++it)
@@ -534,7 +504,22 @@ void MPD::Song::ValidateFormat(const std::string &type, const std::string &s)
 			--braces;
 	}
 	if (braces)
-		FatalError(type + ": number of opening and closing braces does not equal!");
+	{
+		std::cerr << type << ": number of opening and closing braces does not equal!\n";
+		return false;
+	}
+	
+	for (size_t i = s.find('%'); i != std::string::npos; i = s.find('%', i))
+	{
+		if (isdigit(s[++i]))
+			while (isdigit(s[++i])) { }
+		if (!toGetFunction(s[i]))
+		{
+			std::cerr << type << ": invalid character at position " << IntoStr(s[i]) << ": '" << s[i] << "'\n";
+			return false;
+		}
+	}
+	return true;
 }
 
 void MPD::Song::SetHashAndSlash()

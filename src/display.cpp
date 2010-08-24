@@ -22,11 +22,52 @@
 
 #include "display.h"
 #include "helpers.h"
-#include "info.h"
+#include "song_info.h"
 #include "playlist.h"
 #include "global.h"
 
 using Global::myScreen;
+
+namespace
+{
+	const my_char_t *toColumnName(char c)
+	{
+		switch (c)
+		{
+			case 'l':
+				return U("Time");
+			case 'f':
+				return U("Filename");
+			case 'D':
+				return U("Directory");
+			case 'a':
+				return U("Artist");
+			case 'A':
+				return U("Album Artist");
+			case 't':
+				return U("Title");
+			case 'b':
+				return U("Album");
+			case 'y':
+				return U("Year");
+			case 'n':
+			case 'N':
+				return U("Track");
+			case 'g':
+				return U("Genre");
+			case 'c':
+				return U("Composer");
+			case 'p':
+				return U("Performer");
+			case 'd':
+				return U("Disc");
+			case 'C':
+				return U("Comment");
+			default:
+				return U("?");
+		}
+	}
+}
 
 std::string Display::Columns()
 {
@@ -47,7 +88,7 @@ std::string Display::Columns()
 		if (it == Config.columns.end()-1)
 			width = COLS-where;
 		else if (last_fixed && it == next2last)
-			width = COLS-where-(++next2last)->width;
+			width = COLS-where-1-(++next2last)->width;
 		else
 			width = it->width*(it->fixed ? 1 : COLS/100.0);
 		
@@ -56,55 +97,7 @@ std::string Display::Columns()
 		{
 			for (size_t j = 0; j < it->type.length(); ++j)
 			{
-				switch (it->type[j])
-				{
-					case 'l':
-						tag += U("Time");
-						break;
-					case 'f':
-						tag += U("Filename");
-						break;
-					case 'D':
-						tag += U("Directory");
-						break;
-					case 'a':
-						tag += U("Artist");
-						break;
-					case 'A':
-						tag += U("Album Artist");
-						break;
-					case 't':
-						tag += U("Title");
-						break;
-					case 'b':
-						tag += U("Album");
-						break;
-					case 'y':
-						tag += U("Year");
-						break;
-					case 'n':
-					case 'N':
-						tag += U("Track");
-						break;
-					case 'g':
-						tag += U("Genre");
-						break;
-					case 'c':
-						tag += U("Composer");
-						break;
-					case 'p':
-						tag += U("Performer");
-						break;
-					case 'd':
-						tag += U("Disc");
-						break;
-					case 'C':
-						tag += U("Comment");
-						break;
-					default:
-						tag += U("?");
-						break;
-				}
+				tag += toColumnName(it->type[j]);
 				tag += '/';
 			}
 			tag.resize(tag.length()-1);
@@ -136,6 +129,9 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 {
 	if (!s.Localized())
 		const_cast<MPD::Song *>(&s)->Localize();
+	
+	/// FIXME: This function is pure mess, it needs to be
+	/// rewritten and unified with Display::Columns() a bit.
 	
 	bool is_now_playing = menu == myPlaylist->Items && (menu->isFiltered() ? s.GetPosition() : menu->CurrentlyDrawedPosition()) == size_t(myPlaylist->NowPlaying);
 	if (is_now_playing)
@@ -179,7 +175,7 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 		if (it == Config.columns.end()-1)
 			width = menu->GetWidth()-where;
 		else if (last_fixed && it == next2last)
-			width = COLS-where-(++next2last)->width;
+			width = COLS-where-1-(++next2last)->width;
 		else
 			width = it->width*(it->fixed ? 1 : COLS/100.0);
 		
@@ -188,56 +184,7 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 		std::string tag;
 		for (size_t i = 0; i < it->type.length(); ++i)
 		{
-			switch (it->type[i])
-			{
-				case 'l':
-					get = &MPD::Song::GetLength;
-					break;
-				case 'D':
-					get = &MPD::Song::GetDirectory;
-					break;
-				case 'f':
-					get = &MPD::Song::GetName;
-					break;
-				case 'a':
-					get = &MPD::Song::GetArtist;
-					break;
-				case 'A':
-					get = &MPD::Song::GetAlbumArtist;
-					break;
-				case 'b':
-					get = &MPD::Song::GetAlbum;
-					break;
-				case 'y':
-					get = &MPD::Song::GetDate;
-					break;
-				case 'n':
-					get = &MPD::Song::GetTrackNumber;
-					break;
-				case 'N':
-					get = &MPD::Song::GetTrack;
-					break;
-				case 'g':
-					get = &MPD::Song::GetGenre;
-					break;
-				case 'c':
-					get = &MPD::Song::GetComposer;
-					break;
-				case 'p':
-					get = &MPD::Song::GetPerformer;
-					break;
-				case 'd':
-					get = &MPD::Song::GetDisc;
-					break;
-				case 'C':
-					get = &MPD::Song::GetComment;
-					break;
-				case 't':
-					get = &MPD::Song::GetTitle;
-					break;
-				default:
-					break;
-			}
+			get = toGetFunction(it->type[i]);
 			tag = get ? s.GetTags(get) : "";
 			if (!tag.empty())
 				break;
@@ -375,7 +322,7 @@ void Display::Tags(const MPD::Song &s, void *data, Menu<MPD::Song> *menu)
 	size_t i = static_cast<Menu<std::string> *>(data)->Choice();
 	if (i < 11)
 	{
-		ShowTag(*menu, s.GetTags(Info::Tags[i].Get));
+		ShowTag(*menu, s.GetTags(SongInfo::Tags[i].Get));
 	}
 	else if (i == 12)
 	{

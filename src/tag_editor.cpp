@@ -36,7 +36,7 @@
 #include "charset.h"
 #include "display.h"
 #include "global.h"
-#include "info.h"
+#include "song_info.h"
 #include "playlist.h"
 
 using Global::MainHeight;
@@ -86,7 +86,7 @@ void TagEditor::Init()
 	TagTypes->CenteredCursor(Config.centered_cursor);
 	TagTypes->SetItemDisplayer(Display::Generic);
 	
-	for (const Info::Metadata *m = Info::Tags; m->Name; ++m)
+	for (const SongInfo::Metadata *m = SongInfo::Tags; m->Name; ++m)
 		TagTypes->AddOption(m->Name);
 	TagTypes->AddSeparator();
 	TagTypes->AddOption("Filename");
@@ -223,7 +223,7 @@ void TagEditor::Refresh()
 
 void TagEditor::Update()
 {
-	if (LeftColumn->Empty())
+	if (LeftColumn->ReallyEmpty())
 	{
 		LeftColumn->Window::Clear();
 		Tags->Clear();
@@ -281,7 +281,7 @@ void TagEditor::Update()
 		TagTypes->Refresh();
 	}
 	
-	if (Tags->Empty())
+	if (Tags->ReallyEmpty())
 	{
 		Tags->Reset();
 		MPD::SongList list;
@@ -550,8 +550,8 @@ void TagEditor::EnterPressed()
 	
 	if (id < 11)
 	{
-		MPD::Song::GetFunction get = Info::Tags[id].Get;
-		MPD::Song::SetFunction set = Info::Tags[id].Set;
+		MPD::Song::GetFunction get = SongInfo::Tags[id].Get;
+		MPD::Song::SetFunction set = SongInfo::Tags[id].Set;
 		if (id > 0 && w == TagTypes)
 		{
 			LockStatusbar();
@@ -654,7 +654,7 @@ void TagEditor::EnterPressed()
 
 void TagEditor::SpacePressed()
 {
-	if (w == Tags)
+	if (w == Tags && !Tags->Empty())
 	{
 		Tags->Select(Tags->Choice(), !Tags->isSelected());
 		w->Scroll(wDown);
@@ -769,6 +769,8 @@ MPD::Song *TagEditor::CurrentSong()
 
 void TagEditor::GetSelectedSongs(MPD::SongList &v)
 {
+	if (w != Tags || Tags->Empty())
+		return;
 	std::vector<size_t> selected;
 	Tags->GetSelected(selected);
 	if (selected.empty())
@@ -806,7 +808,7 @@ void TagEditor::NextColumn()
 		w = TagTypes;
 		TagTypes->HighlightColor(Config.active_column_color);
 	}
-	else if (w == TagTypes && TagTypes->Choice() < 12 && !Tags->Empty())
+	else if (w == TagTypes && TagTypes->Choice() < 12 && !Tags->ReallyEmpty())
 	{
 		TagTypes->HighlightColor(Config.main_highlight_color);
 		w->Refresh();
@@ -1069,7 +1071,7 @@ std::string TagEditor::CapitalizeFirstLetters(const std::string &s)
 
 void TagEditor::CapitalizeFirstLetters(MPD::Song &s)
 {
-	for (const Info::Metadata *m = Info::Tags; m->Name; ++m)
+	for (const SongInfo::Metadata *m = SongInfo::Tags; m->Name; ++m)
 	{
 		unsigned i = 0;
 		for (std::string tag; !(tag = (s.*m->Get)(i)).empty(); ++i)
@@ -1079,7 +1081,7 @@ void TagEditor::CapitalizeFirstLetters(MPD::Song &s)
 
 void TagEditor::LowerAllLetters(MPD::Song &s)
 {
-	for (const Info::Metadata *m = Info::Tags; m->Name; ++m)
+	for (const SongInfo::Metadata *m = SongInfo::Tags; m->Name; ++m)
 	{
 		unsigned i = 0;
 		for (std::string tag; !(tag = (s.*m->Get)(i)).empty(); ++i)
@@ -1103,7 +1105,7 @@ std::string TagEditor::TagToString(const MPD::Song &s, void *data)
 	std::string result;
 	size_t i = static_cast<Menu<std::string> *>(data)->Choice();
 	if (i < 11)
-		result = (s.*Info::Tags[i].Get)(0);
+		result = (s.*SongInfo::Tags[i].Get)(0);
 	else if (i == 12)
 		result = s.GetNewName().empty() ? s.GetName() : s.GetName() + " -> " + s.GetNewName();
 	return result.empty() ? Config.empty_tag : result;

@@ -52,6 +52,8 @@ NCurses::Color IntoColor(const std::string &);
 
 mpd_tag_type IntoTagItem(char);
 
+MPD::Song::GetFunction toGetFunction(char c);
+
 #ifdef HAVE_TAGLIB_H
 MPD::Song::SetFunction IntoSetFunction(mpd_tag_type);
 #endif // HAVE_TAGLIB_H
@@ -59,6 +61,8 @@ MPD::Song::SetFunction IntoSetFunction(mpd_tag_type);
 std::string Shorten(const std::basic_string<my_char_t> &s, size_t max_length);
 
 void EscapeUnallowedChars(std::string &);
+
+std::string unescapeHtmlUtf8(const std::string &data);
 
 void StripHtmlTags(std::string &s);
 

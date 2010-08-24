@@ -250,7 +250,6 @@ void MPD::Connection::UpdateStatus()
 		{
 			if (idle_mask != 0)
 			{
-				itsChanges.Playlist = idle_mask & MPD_IDLE_QUEUE;
 				itsChanges.Database = idle_mask & MPD_IDLE_DATABASE;
 				itsChanges.DBUpdating = idle_mask & MPD_IDLE_UPDATE;
 				itsChanges.Volume = idle_mask & MPD_IDLE_MIXER;
@@ -259,9 +258,6 @@ void MPD::Connection::UpdateStatus()
 			}
 			else
 			{
-				itsChanges.Playlist = mpd_status_get_queue_version(itsOldStatus)
-						   != mpd_status_get_queue_version(itsCurrentStatus);
-				
 				itsChanges.ElapsedTime = mpd_status_get_elapsed_time(itsOldStatus)
 						      != mpd_status_get_elapsed_time(itsCurrentStatus);
 				
@@ -285,6 +281,9 @@ void MPD::Connection::UpdateStatus()
 				// from mpd status, it's possible only with idle notifications
 				itsChanges.Outputs = 0;
 			}
+			
+			itsChanges.Playlist = mpd_status_get_queue_version(itsOldStatus)
+					   != mpd_status_get_queue_version(itsCurrentStatus);
 			
 			itsChanges.SongID = mpd_status_get_song_id(itsOldStatus)
 					 != mpd_status_get_song_id(itsCurrentStatus);
@@ -1028,7 +1027,16 @@ bool MPD::Connection::DeletePlaylist(const std::string &name)
 	}
 }
 
-bool MPD::Connection::SavePlaylist(const std::string &name)
+bool MPD::Connection::LoadPlaylist(const std::string &name)
+{
+	if (!itsConnection)
+		return false;
+	assert(!isCommandsListEnabled);
+	GoBusy();
+	return mpd_run_load(itsConnection, name.c_str());
+}
+
+int MPD::Connection::SavePlaylist(const std::string &name)
 {
 	if (!itsConnection)
 		return false;
@@ -1036,8 +1044,12 @@ bool MPD::Connection::SavePlaylist(const std::string &name)
 	GoBusy();
 	mpd_send_save(itsConnection, name.c_str());
 	mpd_response_finish(itsConnection);
-	return !(mpd_connection_get_error(itsConnection) == MPD_ERROR_SERVER
-	&&	 mpd_connection_get_server_error(itsConnection) == MPD_SERVER_ERROR_EXIST);
+	
+	if (mpd_connection_get_error(itsConnection) == MPD_ERROR_SERVER
+	&&  mpd_connection_get_server_error(itsConnection) == MPD_SERVER_ERROR_EXIST)
+		return MPD_SERVER_ERROR_EXIST;
+	else
+		return CheckForErrors();
 }
 
 void MPD::Connection::GetPlaylists(TagList &v)
@@ -1296,7 +1308,7 @@ void MPD::Connection::GetTagTypes(TagList &v)
 
 int MPD::Connection::CheckForErrors()
 {
-	int error_code = 0;
+	int error_code = MPD_ERROR_SUCCESS;
 	if ((error_code = mpd_connection_get_error(itsConnection)) != MPD_ERROR_SUCCESS)
 	{
 		itsErrorMessage = mpd_connection_get_error_message(itsConnection);

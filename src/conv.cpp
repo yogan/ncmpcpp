@@ -144,6 +144,45 @@ mpd_tag_type IntoTagItem(char c)
 	}
 }
 
+MPD::Song::GetFunction toGetFunction(char c)
+{
+	switch (c)
+	{
+		case 'l':
+			return &MPD::Song::GetLength;
+		case 'D':
+			return &MPD::Song::GetDirectory;
+		case 'f':
+			return &MPD::Song::GetName;
+		case 'a':
+			return &MPD::Song::GetArtist;
+		case 'A':
+			return &MPD::Song::GetAlbumArtist;
+		case 'b':
+			return &MPD::Song::GetAlbum;
+		case 'y':
+			return &MPD::Song::GetDate;
+		case 'n':
+			return &MPD::Song::GetTrackNumber;
+		case 'N':
+			return &MPD::Song::GetTrack;
+		case 'g':
+			return &MPD::Song::GetGenre;
+		case 'c':
+			return &MPD::Song::GetComposer;
+		case 'p':
+			return &MPD::Song::GetPerformer;
+		case 'd':
+			return &MPD::Song::GetDisc;
+		case 'C':
+			return &MPD::Song::GetComment;
+		case 't':
+			return &MPD::Song::GetTitle;
+		default:
+			return 0;
+	}
+}
+
 #ifdef HAVE_TAGLIB_H
 MPD::Song::SetFunction IntoSetFunction(mpd_tag_type tag)
 {
@@ -183,7 +222,7 @@ std::string Shorten(const std::basic_string<my_char_t> &s, size_t max_length)
 		return TO_STRING(s);
 	if (max_length < 2)
 		return "";
-	std::basic_string<my_char_t> result(s, 0, max_length/2-1);
+	std::basic_string<my_char_t> result(s, 0, max_length/2-!(max_length%2));
 	result += U("..");
 	result += s.substr(s.length()-max_length/2+1);
 	return TO_STRING(result);
@@ -206,6 +245,35 @@ void EscapeUnallowedChars(std::string &s)
 	}
 }
 
+std::string unescapeHtmlUtf8(const std::string &data)
+{
+	std::string result;
+	for (size_t i = 0, j; i < data.length(); ++i)
+	{
+		if (data[i] == '&' && data[i+1] == '#' && (j = data.find(';', i)) != std::string::npos)
+		{
+			int n = atoi(&data.c_str()[i+2]);
+			if (n >= 0x800)
+			{
+				result += (0xe0 | ((n >> 12) & 0x0f));
+				result += (0x80 | ((n >> 6) & 0x3f));
+				result += (0x80 | (n & 0x3f));
+			}
+			else if (n >= 0x80)
+			{
+				result += (0xc0 | ((n >> 6) & 0x1f));
+				result += (0x80 | (n & 0x3f));
+			}
+			else
+				result += n;
+			i = j;
+		}
+		else
+			result += data[i];
+	}
+	return result;
+}
+
 void StripHtmlTags(std::string &s)
 {
 	bool erase = 0;
@@ -215,8 +283,8 @@ void StripHtmlTags(std::string &s)
 		s.replace(i, j-i, "");
 	}
 	Replace(s, "&#039;", "'");
-	Replace(s, "&quot;", "\"");
 	Replace(s, "&amp;", "&");
+	Replace(s, "&quot;", "\"");
 	for (size_t i = 0; i < s.length(); ++i)
 	{
 		if (erase)
