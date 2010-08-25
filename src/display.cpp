@@ -28,6 +28,9 @@
 
 using Global::myScreen;
 
+// FIXME: make member var
+Color bgColor = clDefault;
+
 namespace
 {
 	const my_char_t *toColumnName(char c)
@@ -141,15 +144,19 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 		return;
 	
 	assert(data);
-	bool separate_albums = false;
+	bool album_swap = false;
 	if (Config.playlist_separate_albums && menu->CurrentlyDrawedPosition()+1 < menu->Size())
 	{
 		MPD::Song *next = static_cast<ScreenFormat *>(data)->screen->GetSong(menu->CurrentlyDrawedPosition()+1);
 		if (next && next->GetAlbum() != s.GetAlbum())
-			separate_albums = true;
+			album_swap = true;
+		if (menu->CurrentlyDrawedPosition() == 0)
+		{
+			bgColor = clDefault; // start with default on top
+			std::string msg = s.GetAlbum() + std::string(" at top!");
+			ShowMessage("%s", msg.c_str());
+		}
 	}
-	if (separate_albums)
-		*menu << fmtUnderline;
 	
 	std::vector<Column>::const_iterator next2last, last, it;
 	size_t where = 0;
@@ -169,6 +176,7 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 			menu->GotoXY(where, menu->Y());
 			*menu << ' ';
 			if (!discard_colors && (it-1)->color != clDefault)
+			//if (!discard_colors)
 				*menu << clEnd;
 		}
 		
@@ -189,8 +197,9 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 			if (!tag.empty())
 				break;
 		}
-		if (!discard_colors && it->color != clDefault)
-			*menu << it->color;
+		//if (!discard_colors && it->color != clDefault)
+		if (!discard_colors)
+			*menu << Colors(it->color, bgColor);
 		whline(menu->Raw(), 32, menu->GetWidth()-where);
 		
 		// last column might need to be shrinked to make space for np/sel suffixes
@@ -240,8 +249,14 @@ void Display::SongsInColumns(const MPD::Song &s, void *data, Menu<MPD::Song> *me
 		*menu << clEnd;
 	if (is_now_playing)
 		*menu << Config.now_playing_suffix;
-	if (separate_albums)
-		*menu << fmtUnderlineEnd;
+
+	if (album_swap)
+	{
+		if (bgColor == clDefault)
+			bgColor = clGreen;
+		else
+			bgColor = clDefault;
+	}
 }
 
 void Display::Songs(const MPD::Song &s, void *data, Menu<MPD::Song> *menu)
