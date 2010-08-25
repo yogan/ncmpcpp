@@ -653,12 +653,21 @@ Window &Statusbar()
 
 void DrawProgressbar(unsigned elapsed, unsigned time)
 {
-	unsigned howlong = time ? wFooter->GetWidth()*elapsed/time : 0;
+	unsigned pb_width = wFooter->GetWidth();
+	unsigned howlong = time ? pb_width*elapsed/time : 0;
 	*wFooter << fmtBold << Config.progressbar_color;
-	mvwhline(wFooter->Raw(), 0, 0, Config.progressbar[2], wFooter->GetWidth());
+	if (Config.progressbar[2] != '\0')
+	{
+		wFooter->GotoXY(0, 0);
+		for (unsigned i = 0; i < pb_width; ++i)
+			*wFooter << Config.progressbar[2];
+		wFooter->GotoXY(0, 0);
+	}
+	else
+		mvwhline(wFooter->Raw(), 0, 0, 0, pb_width);
 	if (time)
 	{
-		unsigned pb_width = std::min(size_t(howlong), wFooter->GetWidth());
+		pb_width = std::min(size_t(howlong), wFooter->GetWidth());
 		for (unsigned i = 0; i < pb_width; ++i)
 			*wFooter << Config.progressbar[0];
 		if (howlong < wFooter->GetWidth())
