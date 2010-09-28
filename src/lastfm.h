@@ -28,6 +28,7 @@
 #ifdef HAVE_CURL_CURL_H
 
 #include <memory>
+#include <pthread.h>
 
 #include "lastfm_service.h"
 #include "screen.h"
@@ -53,6 +54,7 @@ class Lastfm : public Screen<Scrollpad>
 		
 		void Refetch();
 		
+		bool isDownloading() { return isDownloadInProgress && !isReadyToTake; }
 		bool SetArtistInfoArgs(const std::string &artist, const std::string &lang = "");
 		
 	protected:

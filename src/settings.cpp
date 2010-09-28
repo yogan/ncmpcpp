@@ -378,6 +378,7 @@ void NcmpcppConfig::SetDefaults()
 	header_visibility = true;
 	header_text_scrolling = true;
 	statusbar_visibility = true;
+	titles_visibility = true;
 	centered_cursor = false;
 	screen_switcher_previous = false;
 	autocenter_mode = false;
@@ -409,6 +410,7 @@ void NcmpcppConfig::SetDefaults()
 	browser_sort_by_mtime = false;
 	tag_editor_extended_numeration = false;
 	media_library_display_date = true;
+	media_library_display_empty_tag = true;
 	media_library_disable_two_column_mode = false;
 	discard_colors_if_item_is_selected = true;
 	store_lyrics_in_song_dir = false;
@@ -899,6 +901,10 @@ void NcmpcppConfig::Read()
 			{
 				statusbar_visibility = v == "yes";
 			}
+			else if (cl.find("titles_visibility") != std::string::npos)
+			{
+				titles_visibility = v == "yes";
+			}
 			else if (cl.find("screen_switcher_mode") != std::string::npos)
 			{
 				if (v.find("previous") != std::string::npos)
@@ -1041,6 +1047,10 @@ void NcmpcppConfig::Read()
 			else if (cl.find("media_library_display_date") != std::string::npos)
 			{
 				media_library_display_date = v == "yes";
+			}
+			else if (cl.find("media_library_display_empty_tag") != std::string::npos)
+			{
+				media_library_display_empty_tag = v == "yes";
 			}
 			else if (cl.find("media_library_disable_two_column_mode") != std::string::npos)
 			{

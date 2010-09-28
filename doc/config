@@ -285,6 +285,8 @@
 #
 #statusbar_visibility = "yes"
 #
+#titles_visibility = "yes"
+#
 #header_text_scrolling = "yes"
 #
 #fancy_scrolling = "yes"
@@ -375,6 +377,8 @@
 #tag_editor_extended_numeration = "no"
 #
 #media_library_display_date = "yes"
+#
+#media_library_display_empty_tag = "yes"
 #
 #media_library_disable_two_column_mode = "no"
 #
